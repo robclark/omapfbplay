@@ -270,14 +270,16 @@ main(int argc, char **argv)
         AVFrame f;
         int gp = 0;
 
-        avcodec_decode_video(avc, &f, &gp, pk.data, pk.size);
+        if (pk.stream_index == st->index) {
+            avcodec_decode_video(avc, &f, &gp, pk.data, pk.size);
 
-        if (gp) {
-            yuv420_to_yuv422(fbmem, f.data[0], f.data[1], f.data[2],
-                             sinfo.xres, sinfo.yres,
-                             f.linesize[0], f.linesize[1],
-                             2*sinfo.xres_virtual);
-            nf1++;
+            if (gp) {
+                yuv420_to_yuv422(fbmem, f.data[0], f.data[1], f.data[2],
+                                 sinfo.xres, sinfo.yres,
+                                 f.linesize[0], f.linesize[1],
+                                 2*sinfo.xres_virtual);
+                nf1++;
+            }
         }
 
         av_free_packet(&pk);

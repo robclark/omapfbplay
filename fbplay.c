@@ -134,6 +134,21 @@ static struct omapfb_mem_info minfo;
 static struct omapfb_plane_info pinfo;
 
 static int
+xioctl(const char *name, int fd, int req, void *param)
+{
+    int err = ioctl(fd, req, param);
+
+    if (err == -1) {
+        perror(name);
+        exit(1);
+    }
+
+    return err;
+}
+
+#define xioctl(fd, req, param) xioctl(#req, fd, req, param)
+
+static int
 setup_fb(AVStream *st)
 {
     int fb = open("/dev/fb0", O_RDWR);
@@ -143,11 +158,7 @@ setup_fb(AVStream *st)
         exit(1);
     }
 
-    if (ioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0) == -1) {
-        perror("FBIOGET_VSCREENINFO");
-        exit(1);
-    }
-
+    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0);
     close(fb);
 
     fb = open("/dev/fb1", O_RDWR);
@@ -157,29 +168,15 @@ setup_fb(AVStream *st)
         exit(1);
     }
 
-    if (ioctl(fb, FBIOGET_VSCREENINFO, &sinfo) == -1) {
-        perror("FBIOGET_VSCREENINFO");
-        exit(1);
-    }
-
-    if (ioctl(fb, OMAPFB_QUERY_PLANE, &pinfo) == -1) {
-        perror("OMAPFB_QUERY_PLANE");
-        exit(1);
-    }
-
-    if (ioctl(fb, OMAPFB_QUERY_MEM, &minfo) == -1) {
-        perror("OMAPFB_QUERY_MEM");
-        exit(1);
-    }
+    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo);
+    xioctl(fb, OMAPFB_QUERY_PLANE, &pinfo);
+    xioctl(fb, OMAPFB_QUERY_MEM, &minfo);
 
     sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
     sinfo.yres = FFMIN(sinfo_p0.xres, st->codec->height) & ~15;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
-    if (ioctl(fb, FBIOPUT_VSCREENINFO, &sinfo) == -1) {
-        perror("FBIOPUT_VSCREENINFO");
-        exit(1);
-    }
+    xioctl(fb, FBIOPUT_VSCREENINFO, &sinfo);
 
     pinfo.enabled = 1;
     pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
@@ -187,10 +184,7 @@ setup_fb(AVStream *st)
     pinfo.out_width  = sinfo.xres;
     pinfo.out_height = sinfo.yres;
 
-    if (ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo) == -1) {
-        perror("OMAPFB_SETUP_PLANE");
-        exit(1);
-    }
+    ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
 
     return fb;
 }

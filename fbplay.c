@@ -128,17 +128,32 @@ find_stream(AVFormatContext *afc)
     return st;
 }
 
+static struct fb_var_screeninfo sinfo_p0;
 static struct fb_var_screeninfo sinfo;
 static struct omapfb_mem_info minfo;
 static struct omapfb_plane_info pinfo;
 
 static int
-setup_fb(const char *fbdev, AVStream *st)
+setup_fb(AVStream *st)
 {
-    int fb = open(fbdev, O_RDWR);
+    int fb = open("/dev/fb0", O_RDWR);
 
     if (fb == -1) {
-        perror(fbdev);
+        perror("/dev/fb0");
+        exit(1);
+    }
+
+    if (ioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0) == -1) {
+        perror("FBIOGET_VSCREENINFO");
+        exit(1);
+    }
+
+    close(fb);
+
+    fb = open("/dev/fb1", O_RDWR);
+
+    if (fb == -1) {
+        perror("/dev/fb1");
         exit(1);
     }
 
@@ -157,8 +172,8 @@ setup_fb(const char *fbdev, AVStream *st)
         exit(1);
     }
 
-    sinfo.xres = st->codec->width  & ~15;
-    sinfo.yres = st->codec->height & ~15;
+    sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
+    sinfo.yres = FFMIN(sinfo_p0.xres, st->codec->height) & ~15;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
     if (ioctl(fb, FBIOPUT_VSCREENINFO, &sinfo) == -1) {
@@ -167,8 +182,8 @@ setup_fb(const char *fbdev, AVStream *st)
     }
 
     pinfo.enabled = 1;
-    pinfo.pos_x = sinfo.xres_virtual / 2 - sinfo.xres / 2;
-    pinfo.pos_y = sinfo.yres_virtual / 2 - sinfo.yres / 2;
+    pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
+    pinfo.pos_y = sinfo_p0.yres / 2 - sinfo.yres / 2;
     pinfo.out_width  = sinfo.xres;
     pinfo.out_height = sinfo.yres;
 
@@ -198,7 +213,6 @@ tv_diff(struct timeval *tv1, struct timeval *tv2)
 int
 main(int argc, char **argv)
 {
-    const char *fbdev = "/dev/fb1";
     struct timeval tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
     uint8_t *fbmem;
@@ -224,7 +238,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    fb = setup_fb(fbdev, st);
+    fb = setup_fb(st);
 
     fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
     if (fbmem == MAP_FAILED) {

@@ -238,14 +238,6 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    fb = setup_fb(st);
-
-    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
-    if (fbmem == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
-
     codec = avcodec_find_decoder(st->codec->codec_id);
     if (!codec) {
         fprintf(stderr, "Can't find codec %x\n", st->codec->codec_id);
@@ -260,6 +252,14 @@ main(int argc, char **argv)
     if (err) {
         fprintf(stderr, "avcodec_open: %d\n", err);
         exit(1);
+    }
+
+    fb = setup_fb(st);
+
+    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
+    if (fbmem == MAP_FAILED) {
+        perror("mmap");
+        return 1;
     }
 
     signal(SIGINT, sigint);

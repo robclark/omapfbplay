@@ -245,6 +245,9 @@ main(int argc, char **argv)
     }
 
     avc = avcodec_alloc_context();
+
+    avc->width          = st->codec->width;
+    avc->height         = st->codec->height;
     avc->extradata      = st->codec->extradata;
     avc->extradata_size = st->codec->extradata_size;
 

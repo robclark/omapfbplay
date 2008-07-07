@@ -133,6 +133,14 @@ static struct fb_var_screeninfo sinfo;
 static struct omapfb_mem_info minfo;
 static struct omapfb_plane_info pinfo;
 
+static struct {
+    unsigned x;
+    unsigned y;
+    uint8_t *buf;
+} fb_pages[2];
+
+static int fb_page_flip;
+
 static int
 xioctl(const char *name, int fd, int req, void *param)
 {
@@ -152,6 +160,7 @@ static int
 setup_fb(AVStream *st)
 {
     int fb = open("/dev/fb0", O_RDWR);
+    uint8_t *fbmem;
 
     if (fb == -1) {
         perror("/dev/fb0");
@@ -172,9 +181,30 @@ setup_fb(AVStream *st)
     xioctl(fb, OMAPFB_QUERY_PLANE, &pinfo);
     xioctl(fb, OMAPFB_QUERY_MEM, &minfo);
 
+    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
+    if (fbmem == MAP_FAILED) {
+        perror("mmap");
+        return 1;
+    }
+
     sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
     sinfo.yres = FFMIN(sinfo_p0.xres, st->codec->height) & ~15;
+    sinfo.xoffset = 0;
+    sinfo.yoffset = 0;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
+
+    fb_pages[0].x = 0;
+    fb_pages[0].y = 0;
+    fb_pages[0].buf = fbmem;
+
+    if (minfo.size >= sinfo.xres * sinfo.yres * 2) {
+        sinfo.xres_virtual = sinfo.xres;
+        sinfo.yres_virtual = sinfo.yres * 2;
+        fb_pages[1].x = 0;
+        fb_pages[1].y = sinfo.yres;
+        fb_pages[1].buf = fbmem + sinfo.xres * sinfo.yres * 2;
+        fb_page_flip = 1;
+    }
 
     xioctl(fb, FBIOPUT_VSCREENINFO, &sinfo);
 
@@ -209,12 +239,12 @@ main(int argc, char **argv)
 {
     struct timeval tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
-    uint8_t *fbmem;
     AVFormatContext *afc;
     AVCodec *codec;
     AVCodecContext *avc;
     AVStream *st;
     AVPacket pk;
+    int page = 0;
     int err;
     int fb;
 
@@ -253,12 +283,6 @@ main(int argc, char **argv)
 
     fb = setup_fb(st);
 
-    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
-    if (fbmem == MAP_FAILED) {
-        perror("mmap");
-        return 1;
-    }
-
     signal(SIGINT, sigint);
     gettimeofday(&tstart, NULL);
     t1 = tstart;
@@ -271,10 +295,19 @@ main(int argc, char **argv)
             avcodec_decode_video(avc, &f, &gp, pk.data, pk.size);
 
             if (gp) {
-                yuv420_to_yuv422(fbmem, f.data[0], f.data[1], f.data[2],
+                yuv420_to_yuv422(fb_pages[page].buf,
+                                 f.data[0], f.data[1], f.data[2],
                                  sinfo.xres, sinfo.yres,
                                  f.linesize[0], f.linesize[1],
                                  2*sinfo.xres_virtual);
+
+                if (fb_page_flip) {
+                    sinfo.xoffset = fb_pages[page].x;
+                    sinfo.yoffset = fb_pages[page].y;
+                    xioctl(fb, FBIOPAN_DISPLAY, &sinfo);
+                    page ^= fb_page_flip;
+                }
+
                 nf1++;
             }
         }

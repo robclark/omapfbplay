@@ -157,7 +157,7 @@ xioctl(const char *name, int fd, int req, void *param)
 #define xioctl(fd, req, param) xioctl(#req, fd, req, param)
 
 static int
-setup_fb(AVStream *st)
+setup_fb(AVStream *st, int fullscreen)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
@@ -209,10 +209,17 @@ setup_fb(AVStream *st)
     xioctl(fb, FBIOPUT_VSCREENINFO, &sinfo);
 
     pinfo.enabled = 1;
-    pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
-    pinfo.pos_y = sinfo_p0.yres / 2 - sinfo.yres / 2;
-    pinfo.out_width  = sinfo.xres;
-    pinfo.out_height = sinfo.yres;
+    if (fullscreen) {
+        pinfo.pos_x = 0;
+        pinfo.pos_y = 0;
+        pinfo.out_width  = sinfo_p0.xres;
+        pinfo.out_height = sinfo_p0.yres;
+    } else {
+        pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
+        pinfo.pos_y = sinfo_p0.yres / 2 - sinfo.yres / 2;
+        pinfo.out_width  = sinfo.xres;
+        pinfo.out_height = sinfo.yres;
+    }
 
     ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
 
@@ -244,17 +251,30 @@ main(int argc, char **argv)
     AVCodecContext *avc;
     AVStream *st;
     AVPacket pk;
+    int fullscreen = 0;
     int page = 0;
+    int opt;
     int err;
     int fb;
 
-    if (argc < 2)
+    while ((opt = getopt(argc, argv, "f")) != -1) {
+        switch (opt) {
+        case 'f':
+            fullscreen = 1;
+            break;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (argc < 1)
         return 1;
 
     av_register_all();
     avcodec_register_all();
 
-    afc = open_file(argv[1]);
+    afc = open_file(argv[0]);
 
     st = find_stream(afc);
     if (!st) {
@@ -281,7 +301,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    fb = setup_fb(st);
+    fb = setup_fb(st, fullscreen);
 
     signal(SIGINT, sigint);
     gettimeofday(&tstart, NULL);

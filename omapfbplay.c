@@ -32,12 +32,17 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <errno.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include <linux/fb.h>
 #include <asm-arm/arch-omap/omapfb.h>
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+
+#define BUFFER_SIZE (64*1024*1024)
 
 static void
 yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
@@ -163,6 +168,7 @@ static struct {
     uint8_t *buf;
 } fb_pages[2];
 
+static int dev_fd;
 static int fb_page_flip;
 
 static int
@@ -252,12 +258,6 @@ setup_fb(AVStream *st, int fullscreen)
 
 static int stop;
 
-static void
-sigint(int s)
-{
-    stop = 1;
-}
-
 static int
 tv_diff(struct timeval *tv1, struct timeval *tv2)
 {
@@ -265,24 +265,289 @@ tv_diff(struct timeval *tv1, struct timeval *tv2)
         (tv1->tv_usec - tv2->tv_usec) / 1000;
 }
 
+static struct frame {
+    uint8_t *data[3];
+    int pic_num;
+    int next;
+    int prev;
+    int refs;
+} *frames;
+
+static uint8_t *frame_buf;
+static unsigned num_frames;
+static unsigned frame_size;
+static unsigned linesize;
+static int free_head;
+static int free_tail;
+static int disp_head = -1;
+static int disp_tail = -1;
+
+static pthread_mutex_t disp_lock;
+static sem_t disp_sem;
+static sem_t free_sem;
+
+static int pic_num;
+
+#define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
+
+#define EDGE_WIDTH 16
+
+static int
+ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
+{
+    struct frame *f = frames + free_tail;
+    int i;
+
+    sem_wait(&free_sem);
+
+    if (free_tail < 0) {
+        fprintf(stderr, "no more buffers\n");
+        return -1;
+    }
+
+    for (i = 0; i < 3; i++) {
+        pic->data[i] = pic->base[i] = f->data[i];
+        pic->linesize[i] = linesize;
+    }
+
+    pic->type = FF_BUFFER_TYPE_USER;
+    pic->age = ++pic_num - f->pic_num;
+    f->pic_num = pic_num;
+    f->refs++;
+
+    free_tail = f->next;
+    frames[free_tail].prev = -1;
+    f->next = -1;
+
+    return 0;
+}
+
+static void
+ofb_release_frame(struct frame *f)
+{
+    unsigned fnum = f - frames;
+
+    if (!--f->refs) {
+        f->prev = free_head;
+        if (free_head != -1)
+            frames[free_head].next = fnum;
+        free_head = fnum;
+        sem_post(&free_sem);
+    }
+}
+
+static void
+ofb_release_buffer(AVCodecContext *ctx, AVFrame *pic)
+{
+    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
+    struct frame *f = frames + fnum;
+    int i;
+
+    for (i = 0; i < 3; i++)
+        pic->data[i] = NULL;
+
+    ofb_release_frame(f);
+}
+
+static int
+ofb_reget_buffer(AVCodecContext *ctx, AVFrame *pic)
+{
+    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
+    fprintf(stderr, "reget_buffer   %2d\n", fnum);
+
+    if (!pic->data[0]) {
+        pic->buffer_hints |= FF_BUFFER_HINTS_READABLE;
+        return ofb_get_buffer(ctx, pic);
+    }
+
+    return 0;
+}
+
+static void *
+disp_thread(void *p)
+{
+    AVCodecContext *avc = p;
+    unsigned long fper =
+        1000000000ull * avc->time_base.num / avc->time_base.den;
+    struct timespec ftime;
+    struct timeval tstart, t1, t2;
+    int nf1 = 0, nf2 = 0;
+    int page = 0;
+    sem_t sleep_sem;
+    int sval;
+
+    sem_init(&sleep_sem, 0, 0);
+
+    while (sem_getvalue(&free_sem, &sval), sval)
+        usleep(100000);
+
+    gettimeofday(&tstart, NULL);
+    t1 = tstart;
+    ftime.tv_sec  = t1.tv_sec;
+    ftime.tv_nsec = t1.tv_usec * 1000;
+
+    while (!sem_wait(&disp_sem) && !stop) {
+        struct frame *f;
+
+        sem_timedwait(&sleep_sem, &ftime);
+
+        pthread_mutex_lock(&disp_lock);
+        f = frames + disp_tail;
+        disp_tail = f->next;
+        if (disp_tail != -1)
+            frames[disp_tail].prev = -1;
+        pthread_mutex_unlock(&disp_lock);
+
+        f->next = -1;
+
+        yuv420_to_yuv422(fb_pages[page].buf,
+                         f->data[0], f->data[1], f->data[2],
+                         sinfo.xres, sinfo.yres,
+                         linesize, linesize,
+                         2*sinfo.xres_virtual);
+
+        if (fb_page_flip) {
+            sinfo.xoffset = fb_pages[page].x;
+            sinfo.yoffset = fb_pages[page].y;
+            xioctl(dev_fd, FBIOPAN_DISPLAY, &sinfo);
+            page ^= fb_page_flip;
+        }
+
+        ofb_release_frame(f);
+
+        if (++nf1 - nf2 == 50) {
+            gettimeofday(&t2, NULL);
+            fprintf(stderr, "%3d fps\r", (nf1-nf2)*1000 / tv_diff(&t2, &t1));
+            nf2 = nf1;
+            t1 = t2;
+        }
+
+        ftime.tv_nsec += fper;
+        if (ftime.tv_nsec >= 1000000000) {
+            ftime.tv_sec++;
+            ftime.tv_nsec -= 1000000000;
+        }
+
+        gettimeofday(&t2, NULL);
+        if (t2.tv_sec > ftime.tv_sec || t2.tv_usec * 1000 > ftime.tv_nsec) {
+            ftime.tv_sec  = t2.tv_sec;
+            ftime.tv_nsec = t2.tv_usec * 1000;
+        }
+    }
+
+    gettimeofday(&t2, NULL);
+    fprintf(stderr, "%3d fps\n", nf1*1000 / tv_diff(&t2, &tstart));
+
+    while (disp_tail != -1) {
+        struct frame *f = frames + disp_tail;
+        disp_tail = f->next;
+        ofb_release_frame(f);
+    }
+
+    return NULL;
+}
+
+static void
+post_frame(AVFrame *pic)
+{
+    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
+    struct frame *f = frames + fnum;
+
+    f->prev = disp_head;
+    f->next = -1;
+
+    if (disp_head != -1)
+        frames[disp_head].next = fnum;
+    disp_head = fnum;
+
+    pthread_mutex_lock(&disp_lock);
+    if (disp_tail == -1)
+        disp_tail = fnum;
+    pthread_mutex_unlock(&disp_lock);
+
+    f->refs++;
+
+    sem_post(&disp_sem);
+}
+
+static int
+alloc_buffers(AVStream *st, unsigned bufsize)
+{
+    int buf_w, buf_h;
+    unsigned frame_offset = 0;
+    void *fbp;
+    int i;
+
+    buf_w = ALIGN(st->codec->width,  16);
+    buf_h = ALIGN(st->codec->height, 16);
+
+    if (!(st->codec->flags & CODEC_FLAG_EMU_EDGE)) {
+        buf_w += EDGE_WIDTH * 2;
+        buf_h += EDGE_WIDTH * 2;
+        frame_offset = buf_w * EDGE_WIDTH + EDGE_WIDTH;
+    }
+
+    frame_size = buf_w * buf_h * 3 / 2;
+    num_frames = bufsize / frame_size;
+    bufsize = num_frames * frame_size;
+    linesize = buf_w;
+
+    fprintf(stderr, "Using %d frame buffers, frame_size=%d\n",
+            num_frames, frame_size);
+
+    if (posix_memalign(&fbp, 16, bufsize)) {
+        fprintf(stderr, "Error allocating frame buffers: %d bytes\n", bufsize);
+        exit(1);
+    }
+
+    frame_buf = fbp;
+    frames = malloc(num_frames * sizeof(*frames));
+
+    for (i = 0; i < num_frames; i++) {
+        uint8_t *p = frame_buf + i * frame_size;
+
+        frames[i].data[0] = p + frame_offset;
+        frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
+        frames[i].data[2] = frames[i].data[1] + buf_w / 2;
+
+        frames[i].pic_num = -num_frames;
+        frames[i].next = i + 1;
+        frames[i].prev = i - 1;
+        frames[i].refs = 0;
+    }
+
+    free_head = num_frames - 1;
+    frames[free_head].next = -1;
+
+    return 0;
+}
+
+static void
+sigint(int s)
+{
+    stop = 1;
+    sem_post(&disp_sem);
+}
+
 int
 main(int argc, char **argv)
 {
-    struct timeval tstart, t1, t2;
-    int nf1 = 0, nf2 = 0;
     AVFormatContext *afc;
     AVCodec *codec;
     AVCodecContext *avc;
     AVStream *st;
     AVPacket pk;
+    int bufsize = BUFFER_SIZE;
+    pthread_t dispt;
     int fullscreen = 0;
-    int page = 0;
     int opt;
     int err;
-    int fb;
 
-    while ((opt = getopt(argc, argv, "f")) != -1) {
+    while ((opt = getopt(argc, argv, "b:f")) != -1) {
         switch (opt) {
+        case 'b':
+            bufsize = strtol(optarg, NULL, 0) * 1048576;
+            break;
         case 'f':
             fullscreen = 1;
             break;
@@ -312,12 +577,23 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    alloc_buffers(st, bufsize);
+
+    pthread_mutex_init(&disp_lock, NULL);
+    sem_init(&disp_sem, 0, 0);
+    sem_init(&free_sem, 0, num_frames - 1);
+
     avc = avcodec_alloc_context();
 
     avc->width          = st->codec->width;
     avc->height         = st->codec->height;
+    avc->time_base      = st->codec->time_base;
     avc->extradata      = st->codec->extradata;
     avc->extradata_size = st->codec->extradata_size;
+
+    avc->get_buffer     = ofb_get_buffer;
+    avc->release_buffer = ofb_release_buffer;
+    avc->reget_buffer   = ofb_reget_buffer;
 
     err = avcodec_open(avc, codec);
     if (err) {
@@ -325,11 +601,11 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    fb = setup_fb(st, fullscreen);
+    dev_fd = setup_fb(st, fullscreen);
 
     signal(SIGINT, sigint);
-    gettimeofday(&tstart, NULL);
-    t1 = tstart;
+
+    pthread_create(&dispt, NULL, disp_thread, avc);
 
     while (!stop && !av_read_frame(afc, &pk)) {
         AVFrame f;
@@ -339,41 +615,31 @@ main(int argc, char **argv)
             avcodec_decode_video(avc, &f, &gp, pk.data, pk.size);
 
             if (gp) {
-                yuv420_to_yuv422(fb_pages[page].buf,
-                                 f.data[0], f.data[1], f.data[2],
-                                 sinfo.xres, sinfo.yres,
-                                 f.linesize[0], f.linesize[1],
-                                 2*sinfo.xres_virtual);
-
-                if (fb_page_flip) {
-                    sinfo.xoffset = fb_pages[page].x;
-                    sinfo.yoffset = fb_pages[page].y;
-                    xioctl(fb, FBIOPAN_DISPLAY, &sinfo);
-                    page ^= fb_page_flip;
-                }
-
-                nf1++;
+                post_frame(&f);
             }
         }
 
         av_free_packet(&pk);
-
-        if (nf1 - nf2 == 50) {
-            gettimeofday(&t2, NULL);
-            fprintf(stderr, "%3d fps\r", (nf1-nf2)*1000 / tv_diff(&t2, &t1));
-            nf2 = nf1;
-            t1 = t2;
-        }
     }
-    gettimeofday(&t2, NULL);
-    fprintf(stderr, "%3d fps\n", nf1*1000 / tv_diff(&t2, &tstart));
+
+    if (!stop) {
+        while (disp_tail != -1)
+            usleep(100000);
+    }
+
+    stop = 1;
+    sem_post(&disp_sem);
+    pthread_join(dispt, NULL);
 
     pinfo.enabled = 0;
-    ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
-    close(fb);
+    ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
+    close(dev_fd);
 
     avcodec_close(avc);
     av_close_input_file(afc);
+
+    free(frame_buf);
+    free(frames);
 
     return 0;
 }

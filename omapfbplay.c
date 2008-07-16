@@ -595,7 +595,8 @@ main(int argc, char **argv)
 
     avc->width          = st->codec->width;
     avc->height         = st->codec->height;
-    avc->time_base      = st->codec->time_base;
+    avc->time_base      = st->codec->time_base.num?
+                              st->codec->time_base: st->time_base;
     avc->extradata      = st->codec->extradata;
     avc->extradata_size = st->codec->extradata_size;
 

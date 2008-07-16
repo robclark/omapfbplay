@@ -30,7 +30,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
+#include <time.h>
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
@@ -259,10 +259,20 @@ setup_fb(AVStream *st, int fullscreen)
 static int stop;
 
 static int
-tv_diff(struct timeval *tv1, struct timeval *tv2)
+ts_diff(struct timespec *tv1, struct timespec *tv2)
 {
     return (tv1->tv_sec - tv2->tv_sec) * 1000 +
-        (tv1->tv_usec - tv2->tv_usec) / 1000;
+        (tv1->tv_nsec - tv2->tv_nsec) / 1000000;
+}
+
+static void
+ts_add(struct timespec *ts, unsigned long nsec)
+{
+    ts->tv_nsec += nsec;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_sec++;
+        ts->tv_nsec -= 1000000000;
+    }
 }
 
 static struct frame {
@@ -370,7 +380,7 @@ disp_thread(void *p)
     unsigned long fper =
         1000000000ull * avc->time_base.num / avc->time_base.den;
     struct timespec ftime;
-    struct timeval tstart, t1, t2;
+    struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
     int page = 0;
     sem_t sleep_sem;
@@ -381,10 +391,8 @@ disp_thread(void *p)
     while (sem_getvalue(&free_sem, &sval), sval)
         usleep(100000);
 
-    gettimeofday(&tstart, NULL);
-    t1 = tstart;
-    ftime.tv_sec  = t1.tv_sec;
-    ftime.tv_nsec = t1.tv_usec * 1000;
+    clock_gettime(CLOCK_REALTIME, &tstart);
+    ftime = t1 = tstart;
 
     while (!sem_wait(&disp_sem) && !stop) {
         struct frame *f;
@@ -416,27 +424,22 @@ disp_thread(void *p)
         ofb_release_frame(f);
 
         if (++nf1 - nf2 == 50) {
-            gettimeofday(&t2, NULL);
-            fprintf(stderr, "%3d fps\r", (nf1-nf2)*1000 / tv_diff(&t2, &t1));
+            clock_gettime(CLOCK_REALTIME, &t2);
+            fprintf(stderr, "%3d fps\r", (nf1-nf2)*1000 / ts_diff(&t2, &t1));
             nf2 = nf1;
             t1 = t2;
         }
 
-        ftime.tv_nsec += fper;
-        if (ftime.tv_nsec >= 1000000000) {
-            ftime.tv_sec++;
-            ftime.tv_nsec -= 1000000000;
-        }
+        ts_add(&ftime, fper);
 
-        gettimeofday(&t2, NULL);
-        if (t2.tv_sec > ftime.tv_sec || t2.tv_usec * 1000 > ftime.tv_nsec) {
-            ftime.tv_sec  = t2.tv_sec;
-            ftime.tv_nsec = t2.tv_usec * 1000;
-        }
+        clock_gettime(CLOCK_REALTIME, &t2);
+        if (t2.tv_sec > ftime.tv_sec ||
+            (t2.tv_sec == ftime.tv_sec && t2.tv_nsec > ftime.tv_nsec))
+            ftime = t2;
     }
 
-    gettimeofday(&t2, NULL);
-    fprintf(stderr, "%3d fps\n", nf1*1000 / tv_diff(&t2, &tstart));
+    clock_gettime(CLOCK_REALTIME, &t2);
+    fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
 
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;

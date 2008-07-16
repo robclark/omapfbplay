@@ -291,6 +291,7 @@ static int free_head;
 static int free_tail;
 static int disp_head = -1;
 static int disp_tail = -1;
+static int disp_count;
 
 static pthread_mutex_t disp_lock;
 static sem_t disp_sem;
@@ -404,6 +405,7 @@ disp_thread(void *p)
         disp_tail = f->next;
         if (disp_tail != -1)
             frames[disp_tail].prev = -1;
+        disp_count--;
         pthread_mutex_unlock(&disp_lock);
 
         f->next = -1;
@@ -425,7 +427,9 @@ disp_thread(void *p)
 
         if (++nf1 - nf2 == 50) {
             clock_gettime(CLOCK_REALTIME, &t2);
-            fprintf(stderr, "%3d fps\r", (nf1-nf2)*1000 / ts_diff(&t2, &t1));
+            fprintf(stderr, "%3d fps, buffer %3d\r",
+                    (nf1-nf2)*1000 / ts_diff(&t2, &t1),
+                    disp_count);
             nf2 = nf1;
             t1 = t2;
         }
@@ -466,6 +470,7 @@ post_frame(AVFrame *pic)
     pthread_mutex_lock(&disp_lock);
     if (disp_tail == -1)
         disp_tail = fnum;
+    disp_count++;
     pthread_mutex_unlock(&disp_lock);
 
     f->refs++;

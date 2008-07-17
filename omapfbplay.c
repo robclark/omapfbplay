@@ -381,9 +381,9 @@ ofb_reget_buffer(AVCodecContext *ctx, AVFrame *pic)
 static void *
 disp_thread(void *p)
 {
-    AVCodecContext *avc = p;
+    AVStream *st = p;
     unsigned long fper =
-        1000000000ull * avc->time_base.num / avc->time_base.den;
+        1000000000ull * st->r_frame_rate.den / st->r_frame_rate.num;
     struct timespec ftime;
     struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
@@ -601,8 +601,7 @@ main(int argc, char **argv)
 
     avc->width          = st->codec->width;
     avc->height         = st->codec->height;
-    avc->time_base      = st->codec->time_base.num?
-                              st->codec->time_base: st->time_base;
+    avc->time_base      = st->codec->time_base;
     avc->extradata      = st->codec->extradata;
     avc->extradata_size = st->codec->extradata_size;
 
@@ -620,7 +619,7 @@ main(int argc, char **argv)
 
     signal(SIGINT, sigint);
 
-    pthread_create(&dispt, NULL, disp_thread, avc);
+    pthread_create(&dispt, NULL, disp_thread, st);
 
     while (!stop && !av_read_frame(afc, &pk)) {
         AVFrame f;

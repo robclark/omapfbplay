@@ -191,6 +191,7 @@ setup_fb(AVStream *st, int fullscreen)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
+    int i;
 
     if (fb == -1) {
         perror("/dev/fb0");
@@ -216,6 +217,9 @@ setup_fb(AVStream *st, int fullscreen)
         perror("mmap");
         return 1;
     }
+
+    for (i = 0; i < minfo.size / 4; i++)
+        ((uint32_t*)fbmem)[i] = 0x80008000;
 
     sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
     sinfo.yres = FFMIN(sinfo_p0.xres, st->codec->height) & ~15;

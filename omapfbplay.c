@@ -393,7 +393,7 @@ disp_thread(void *p)
 
     sem_init(&sleep_sem, 0, 0);
 
-    while (sem_getvalue(&free_sem, &sval), sval)
+    while (sem_getvalue(&free_sem, &sval), sval && !stop)
         usleep(100000);
 
     clock_gettime(CLOCK_REALTIME, &tstart);
@@ -446,8 +446,10 @@ disp_thread(void *p)
             ftime = t2;
     }
 
-    clock_gettime(CLOCK_REALTIME, &t2);
-    fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
+    if (nf1) {
+        clock_gettime(CLOCK_REALTIME, &t2);
+        fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
+    }
 
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;

@@ -53,6 +53,7 @@ yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
 
     asm volatile(
         "str       %[w], [sp, #-4]!                        \n\t"
+        "dmb                                               \n\t"
         "1:                                                \n\t"
         "mov       %[tu],   %[u]                           \n\t"
         "mov       %[tv],   %[v]                           \n\t"

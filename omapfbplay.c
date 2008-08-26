@@ -188,7 +188,7 @@ xioctl(const char *name, int fd, int req, void *param)
 #define xioctl(fd, req, param) xioctl(#req, fd, req, param)
 
 static int
-setup_fb(AVStream *st, int fullscreen)
+setup_fb(AVStream *st, int fullscreen, int dbl_buffer)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
@@ -232,7 +232,7 @@ setup_fb(AVStream *st, int fullscreen)
     fb_pages[0].y = 0;
     fb_pages[0].buf = fbmem;
 
-    if (minfo.size >= sinfo.xres * sinfo.yres * 2) {
+    if (dbl_buffer && minfo.size >= sinfo.xres * sinfo.yres * 2) {
         sinfo.xres_virtual = sinfo.xres;
         sinfo.yres_virtual = sinfo.yres * 2;
         fb_pages[1].x = 0;
@@ -555,16 +555,20 @@ main(int argc, char **argv)
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
     int fullscreen = 0;
+    int dbl_buffer = 1;
     int opt;
     int err;
 
-    while ((opt = getopt(argc, argv, "b:f")) != -1) {
+    while ((opt = getopt(argc, argv, "b:fs")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
             break;
         case 'f':
             fullscreen = 1;
+            break;
+        case 's':
+            dbl_buffer = 0;
             break;
         }
     }
@@ -616,7 +620,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    dev_fd = setup_fb(st, fullscreen);
+    dev_fd = setup_fb(st, fullscreen, dbl_buffer);
 
     signal(SIGINT, sigint);
 

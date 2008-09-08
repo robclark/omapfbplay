@@ -223,7 +223,7 @@ setup_fb(AVStream *st, int fullscreen, int dbl_buffer)
         ((uint32_t*)fbmem)[i] = 0x80008000;
 
     sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
-    sinfo.yres = FFMIN(sinfo_p0.xres, st->codec->height) & ~15;
+    sinfo.yres = FFMIN(sinfo_p0.yres, st->codec->height) & ~15;
     sinfo.xoffset = 0;
     sinfo.yoffset = 0;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;

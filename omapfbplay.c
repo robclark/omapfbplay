@@ -468,6 +468,84 @@ sigint(int s)
     sem_post(&disp_sem);
 }
 
+static int
+speed_test(char *size, int fullscreen, int dbl_buffer)
+{
+    struct timespec t1, t2;
+    uint8_t *y, *u, *v;
+    unsigned w, h = 0;
+    unsigned n = 1000;
+    unsigned bufsize;
+    int page = 0;
+    void *buf;
+    int i, j;
+    int fd;
+
+    w = strtoul(size, &size, 0);
+    if (*size++)
+        h = strtoul(size, &size, 0);
+    if (*size++)
+        n = strtoul(size, NULL, 0);
+
+    w &= ~15;
+    h &= ~15;
+
+    if (!w || !h || !n) {
+        fprintf(stderr, "Invalid size/count '%s'\n", size);
+        return 1;
+    }
+
+    bufsize = w * h * 3 / 2;
+    if (posix_memalign(&buf, 16, bufsize)) {
+        fprintf(stderr, "Error allocating %u bytes\n", bufsize);
+        return 1;
+    }
+
+    y = buf;
+    u = y + w * h;
+    v = u + w / 2;
+
+    memset(y, 128, w * h);
+
+    for (i = 0; i < h / 2; i++) {
+        for (j = 0; j < w / 2; j++) {
+            u[i*w + j] = 2*i;
+            v[i*w + j] = 2*j;
+        }
+    }
+
+    fd = setup_fb(w, h, fullscreen, dbl_buffer);
+    signal(SIGINT, sigint);
+
+    clock_gettime(CLOCK_REALTIME, &t1);
+
+    for (i = 0; i < n && !stop; i++) {
+        yuv420_to_yuv422(fb_pages[page].buf,
+                         y, u, v, w, h, w, w,
+                         2*sinfo.xres_virtual);
+
+        if (fb_page_flip) {
+            sinfo.xoffset = fb_pages[page].x;
+            sinfo.yoffset = fb_pages[page].y;
+            xioctl(fd, FBIOPAN_DISPLAY, &sinfo);
+            page ^= fb_page_flip;
+        }
+    }
+
+    clock_gettime(CLOCK_REALTIME, &t2);
+    j = ts_diff(&t2, &t1);
+    fprintf(stderr, "%d ms, %d fps, read %lld B/s, write %lld B/s\n",
+            j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
+
+    pinfo.enabled = 0;
+    ioctl(fd, OMAPFB_SETUP_PLANE, &pinfo);
+    close(fd);
+
+    free(buf);
+
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -480,10 +558,11 @@ main(int argc, char **argv)
     pthread_t dispt;
     int fullscreen = 0;
     int dbl_buffer = 1;
+    char *test_param = NULL;
     int opt;
     int err;
 
-    while ((opt = getopt(argc, argv, "b:fs")) != -1) {
+    while ((opt = getopt(argc, argv, "b:fst:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -494,11 +573,17 @@ main(int argc, char **argv)
         case 's':
             dbl_buffer = 0;
             break;
+        case 't':
+            test_param = optarg;
+            break;
         }
     }
 
     argc -= optind;
     argv += optind;
+
+    if (test_param)
+        return speed_test(test_param, fullscreen, dbl_buffer);
 
     if (argc < 1)
         return 1;

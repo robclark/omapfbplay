@@ -112,7 +112,7 @@ xioctl(const char *name, int fd, int req, void *param)
 #define xioctl(fd, req, param) xioctl(#req, fd, req, param)
 
 static int
-setup_fb(AVStream *st, int fullscreen, int dbl_buffer)
+setup_fb(unsigned width, unsigned height, int fullscreen, int dbl_buffer)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
@@ -146,8 +146,8 @@ setup_fb(AVStream *st, int fullscreen, int dbl_buffer)
     for (i = 0; i < minfo.size / 4; i++)
         ((uint32_t*)fbmem)[i] = 0x80008000;
 
-    sinfo.xres = FFMIN(sinfo_p0.xres, st->codec->width)  & ~15;
-    sinfo.yres = FFMIN(sinfo_p0.yres, st->codec->height) & ~15;
+    sinfo.xres = FFMIN(sinfo_p0.xres, width)  & ~15;
+    sinfo.yres = FFMIN(sinfo_p0.yres, height) & ~15;
     sinfo.xoffset = 0;
     sinfo.yoffset = 0;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
@@ -544,7 +544,8 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    dev_fd = setup_fb(st, fullscreen, dbl_buffer);
+    dev_fd = setup_fb(st->codec->width, st->codec->height,
+                      fullscreen, dbl_buffer);
 
     signal(SIGINT, sigint);
 

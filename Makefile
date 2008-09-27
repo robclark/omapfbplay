@@ -8,3 +8,6 @@ LDFLAGS = -L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lpthread -lrt
 
 omapfbplay: omapfbplay.o yuv.o
+
+clean:
+	rm -f *.o omapfbplay

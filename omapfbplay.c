@@ -44,84 +44,8 @@
 
 #define BUFFER_SIZE (64*1024*1024)
 
-static void
-yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
-                 int w, int h, int yw, int cw, int dw)
-{
-    uint8_t *tyuv, *ty, *tu, *tv;
-    int i;
-
-    asm volatile(
-        "str       %[w], [sp, #-4]!                        \n\t"
-        "dmb                                               \n\t"
-        "1:                                                \n\t"
-        "mov       %[tu],   %[u]                           \n\t"
-        "mov       %[tv],   %[v]                           \n\t"
-        "vld1.64   {d2},    [%[u],:64], %[cw]              \n\t"/* u0 */
-        "vld1.64   {d3},    [%[v],:64], %[cw]              \n\t"/* v0 */
-        "mov       %[tyuv], %[yuv]                         \n\t"
-        "mov       %[ty],   %[y]                           \n\t"
-        "vzip.8    d2, d3                                  \n\t"/* u0v0 */
-        "mov       %[i], #16                               \n\t"
-        "2:                                                \n\t"
-        "pld       [%[y], #64]                             \n\t"
-        "vld1.64   {d0,d1},   [%[y],:128], %[yw]           \n\t"/* y0 */
-        "pld       [%[u], #64]                             \n\t"
-        "subs      %[i], %[i], #4                          \n\t"
-        "pld       [%[y], #64]                             \n\t"
-        "vld1.64   {d6},      [%[u],:64],  %[cw]           \n\t"/* u2 */
-        "pld       [%[v], #64]                             \n\t"
-        "vld1.64   {d4,d5},   [%[y],:128], %[yw]           \n\t"/* y1 */
-        "vld1.64   {d7},      [%[v],:64],  %[cw]           \n\t"/* v2 */
-        "pld       [%[y], #64]                             \n\t"
-        "vld1.64   {d16,d17}, [%[y],:128], %[yw]           \n\t"/* y2 */
-        "vzip.8    d6, d7                                  \n\t"/* u2v2 */
-        "pld       [%[u], #64]                             \n\t"
-        "vld1.64   {d22},     [%[u],:64],  %[cw]           \n\t"/* u4 */
-        "pld       [%[v], #64]                             \n\t"
-        "vld1.64   {d23},     [%[v],:64],  %[cw]           \n\t"/* v4 */
-        "pld       [%[y], #64]                             \n\t"
-        "vld1.64   {d20,d21}, [%[y],:128], %[yw]           \n\t"/* y3 */
-        "vmov      q9, q3                                  \n\t"/* u2v2 */
-        "vrhadd.u8 q3, q1, q3                              \n\t"/* u1v1 */
-        "vzip.8    d22, d23                                \n\t"/* u4v4 */
-        "vzip.8    q0, q1                                  \n\t"/* y0u0y0v0 */
-        "vmov      q12, q11                                \n\t"/* u4v4 */
-        "vrhadd.u8 q11, q9, q11                            \n\t"/* u3v3 */
-        "vzip.8    q2, q3                                  \n\t"/* y1u1y1v1 */
-        "vst1.64   {d0,d1,d2,d3},     [%[yuv],:128], %[dw] \n\t"/* y0u0y0v0 */
-        "vzip.8    q8,  q9                                 \n\t"/* y2u2y2v2 */
-        "vst1.64   {d4,d5,d6,d7},     [%[yuv],:128], %[dw] \n\t"/* y1u1y1v1 */
-        "vzip.8    q10, q11                                \n\t"/* y3u3y3v3 */
-        "vst1.64   {d16,d17,d18,d19}, [%[yuv],:128], %[dw] \n\t"/* y2u2y2v2 */
-        "vmov      q1, q12                                 \n\t"
-        "vst1.64   {d20,d21,d22,d23}, [%[yuv],:128], %[dw] \n\t"/* y3u3y3v3 */
-        "bgt       2b                                      \n\t"
-        "subs      %[w],   %[w],    #16                    \n\t"
-        "add       %[yuv], %[tyuv], #32                    \n\t"
-        "add       %[y],   %[ty],   #16                    \n\t"
-        "add       %[u],   %[tu],   #8                     \n\t"
-        "add       %[v],   %[tv],   #8                     \n\t"
-        "bgt       1b                                      \n\t"
-        "ldr       %[w],   [sp]                            \n\t"
-        "subs      %[h],   %[h],   #16                     \n\t"
-        "add       %[yuv], %[yuv], %[dw], lsl #4           \n\t"
-        "sub       %[yuv], %[yuv], %[w],  lsl #1           \n\t"
-        "add       %[y],   %[y],   %[yw], lsl #4           \n\t"
-        "sub       %[y],   %[y],   %[w]                    \n\t"
-        "add       %[u],   %[u],   %[cw], lsl #3           \n\t"
-        "sub       %[u],   %[u],   %[w],  asr #1           \n\t"
-        "add       %[v],   %[v],   %[cw], lsl #3           \n\t"
-        "sub       %[v],   %[v],   %[w],  asr #1           \n\t"
-        "bgt       1b                                      \n\t"
-        "add       sp, sp, #4                              \n\t"
-        : [yuv]"+r"(yuv), [y]"+r"(y), [u]"+r"(u), [v]"+r"(v),
-          [tyuv]"=&r"(tyuv), [ty]"=&r"(ty), [tu]"=&r"(tu), [tv]"=&r"(tv),
-          [w]"+r"(w), [h]"+r"(h), [i]"=&r"(i)
-        : [yw]"r"(yw), [cw]"r"(cw), [dw]"r"(dw)
-        : "q0", "q1", "q2", "q3", "q8", "q9", "q10", "q11", "q12",
-          "memory");
-}
+extern void yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
+                             int w, int h, int yw, int cw, int dw);
 
 static AVFormatContext *
 open_file(const char *filename)

@@ -65,10 +65,10 @@ yuv420_to_yuv422:
         vld1.64         {d0, d1},   [y,:128], yw        @ y0
         pld             [u, #64]
         subs            i,    i,    #4
-        pld             [y, #64]
         vld1.64         {d6},       [u,:64],  cw        @ u2
-        pld             [v, #64]
+        pld             [y, #64]
         vld1.64         {d4, d5},   [y,:128], yw        @ y1
+        pld             [v, #64]
         vld1.64         {d7},       [v,:64],  cw        @ v2
         pld             [y, #64]
         vld1.64         {d16,d17},  [y,:128], yw        @ y2
@@ -80,12 +80,12 @@ yuv420_to_yuv422:
         pld             [y, #64]
         vld1.64         {d20,d21},  [y,:128], yw        @ y3
         vmov            q9,   q3                        @ u2v2
-        vrhadd.u8       q3,   q1,   q3                  @ u1v1
         vzip.8          d22,  d23                       @ u4v4
+        vrhadd.u8       q3,   q1,   q3                  @ u1v1
         vzip.8          q0,   q1                        @ y0u0y0v0
         vmov            q12,  q11                       @ u4v4
-        vrhadd.u8       q11,  q9,   q11                 @ u3v3
         vzip.8          q2,   q3                        @ y1u1y1v1
+        vrhadd.u8       q11,  q9,   q11                 @ u3v3
         vst1.64         {d0-d3},    [yuv,:128], dw      @ y0u0y0v0
         vzip.8          q8,   q9                        @ y2u2y2v2
         vst1.64         {d4-d7},    [yuv,:128], dw      @ y1u1y1v1

@@ -140,7 +140,7 @@ setup_fb(unsigned width, unsigned height, int fullscreen, int dbl_buffer)
     fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
     if (fbmem == MAP_FAILED) {
         perror("mmap");
-        return 1;
+        exit(1);
     }
 
     for (i = 0; i < minfo.size / 4; i++)

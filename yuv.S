@@ -50,7 +50,6 @@ yuv420_to_yuv422:
         push            {r4-r11,lr}
         add             r4,  sp,  #36
         ldm             r4, {r4-r8}
-        dmb
 1:
         mov             tu,   u
         mov             tv,   v

@@ -37,7 +37,7 @@
 #include <semaphore.h>
 
 #include <linux/fb.h>
-#include <mach/omapfb.h>
+#include <linux/omapfb.h>
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>

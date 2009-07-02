@@ -9,7 +9,7 @@ CFLAGS = -O3 -Wall -fomit-frame-pointer -mcpu=cortex-a8 -mfpu=neon
 LDFLAGS = $(SYSROOT) -L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 
-omapfbplay: omapfbplay.o timer.o yuv.o
+omapfbplay: omapfbplay.o omapfb.o timer.o yuv.o
 
 clean:
 	rm -f *.o omapfbplay

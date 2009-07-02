@@ -27,27 +27,19 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
 #include <time.h>
 #include <signal.h>
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
 
-#include <linux/fb.h>
-#include <linux/omapfb.h>
-
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
+#include "display.h"
 #include "timer.h"
 
 #define BUFFER_SIZE (64*1024*1024)
-
-extern void yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
-                             int w, int h, int yw, int cw, int dw);
 
 static AVFormatContext *
 open_file(const char *filename)
@@ -84,109 +76,6 @@ find_stream(AVFormatContext *afc)
     return st;
 }
 
-static struct fb_var_screeninfo sinfo_p0;
-static struct fb_var_screeninfo sinfo;
-static struct omapfb_mem_info minfo;
-static struct omapfb_plane_info pinfo;
-
-static struct {
-    unsigned x;
-    unsigned y;
-    uint8_t *buf;
-} fb_pages[2];
-
-static int dev_fd;
-static int fb_page_flip;
-
-static int
-xioctl(const char *name, int fd, int req, void *param)
-{
-    int err = ioctl(fd, req, param);
-
-    if (err == -1) {
-        perror(name);
-        exit(1);
-    }
-
-    return err;
-}
-
-#define xioctl(fd, req, param) xioctl(#req, fd, req, param)
-
-static int
-setup_fb(unsigned width, unsigned height, int fullscreen, int dbl_buffer)
-{
-    int fb = open("/dev/fb0", O_RDWR);
-    uint8_t *fbmem;
-    int i;
-
-    if (fb == -1) {
-        perror("/dev/fb0");
-        exit(1);
-    }
-
-    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0);
-    close(fb);
-
-    fb = open("/dev/fb1", O_RDWR);
-
-    if (fb == -1) {
-        perror("/dev/fb1");
-        exit(1);
-    }
-
-    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo);
-    xioctl(fb, OMAPFB_QUERY_PLANE, &pinfo);
-    xioctl(fb, OMAPFB_QUERY_MEM, &minfo);
-
-    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
-    if (fbmem == MAP_FAILED) {
-        perror("mmap");
-        exit(1);
-    }
-
-    for (i = 0; i < minfo.size / 4; i++)
-        ((uint32_t*)fbmem)[i] = 0x80008000;
-
-    sinfo.xres = FFMIN(sinfo_p0.xres, width)  & ~15;
-    sinfo.yres = FFMIN(sinfo_p0.yres, height) & ~15;
-    sinfo.xoffset = 0;
-    sinfo.yoffset = 0;
-    sinfo.nonstd = OMAPFB_COLOR_YUY422;
-
-    fb_pages[0].x = 0;
-    fb_pages[0].y = 0;
-    fb_pages[0].buf = fbmem;
-
-    if (dbl_buffer && minfo.size >= sinfo.xres * sinfo.yres * 2) {
-        sinfo.xres_virtual = sinfo.xres;
-        sinfo.yres_virtual = sinfo.yres * 2;
-        fb_pages[1].x = 0;
-        fb_pages[1].y = sinfo.yres;
-        fb_pages[1].buf = fbmem + sinfo.xres * sinfo.yres * 2;
-        fb_page_flip = 1;
-    }
-
-    xioctl(fb, FBIOPUT_VSCREENINFO, &sinfo);
-
-    pinfo.enabled = 1;
-    if (fullscreen) {
-        pinfo.pos_x = 0;
-        pinfo.pos_y = 0;
-        pinfo.out_width  = sinfo_p0.xres;
-        pinfo.out_height = sinfo_p0.yres;
-    } else {
-        pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
-        pinfo.pos_y = sinfo_p0.yres / 2 - sinfo.yres / 2;
-        pinfo.out_width  = sinfo.xres;
-        pinfo.out_height = sinfo.yres;
-    }
-
-    ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
-
-    return fb;
-}
-
 static int stop;
 
 static int
@@ -206,14 +95,7 @@ ts_add(struct timespec *ts, unsigned long nsec)
     }
 }
 
-static struct frame {
-    uint8_t *data[3];
-    int pic_num;
-    int next;
-    int prev;
-    int refs;
-} *frames;
-
+static struct frame  *frames;
 static uint8_t *frame_buf;
 static unsigned num_frames;
 static unsigned frame_size;
@@ -229,8 +111,6 @@ static sem_t disp_sem;
 static sem_t free_sem;
 
 static int pic_num;
-
-#define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
 
 #define EDGE_WIDTH 16
 
@@ -314,7 +194,6 @@ disp_thread(void *p)
     struct timespec ftime;
     struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
-    int page = 0;
     int sval;
 
     timer_init();
@@ -340,18 +219,7 @@ disp_thread(void *p)
 
         f->next = -1;
 
-        yuv420_to_yuv422(fb_pages[page].buf,
-                         f->data[0], f->data[1], f->data[2],
-                         sinfo.xres, sinfo.yres,
-                         linesize, linesize,
-                         2*sinfo.xres_virtual);
-
-        if (fb_page_flip) {
-            sinfo.xoffset = fb_pages[page].x;
-            sinfo.yoffset = fb_pages[page].y;
-            xioctl(dev_fd, FBIOPAN_DISPLAY, &sinfo);
-            page ^= fb_page_flip;
-        }
+        display_frame(f);
 
         ofb_release_frame(f);
 
@@ -451,6 +319,7 @@ alloc_buffers(AVStream *st, unsigned bufsize)
         frames[i].data[0] = p + frame_offset;
         frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
         frames[i].data[2] = frames[i].data[1] + buf_w / 2;
+        frames[i].linesize = linesize;
 
         frames[i].pic_num = -num_frames;
         frames[i].next = i + 1;
@@ -472,17 +341,16 @@ sigint(int s)
 }
 
 static int
-speed_test(char *size, int fullscreen, int dbl_buffer)
+speed_test(char *size, unsigned disp_flags)
 {
+    struct frame frame;
     struct timespec t1, t2;
     uint8_t *y, *u, *v;
     unsigned w, h = 0;
     unsigned n = 1000;
     unsigned bufsize;
-    int page = 0;
     void *buf;
     int i, j;
-    int fd;
 
     w = strtoul(size, &size, 0);
     if (*size++)
@@ -517,22 +385,18 @@ speed_test(char *size, int fullscreen, int dbl_buffer)
         }
     }
 
-    fd = setup_fb(w, h, fullscreen, dbl_buffer);
+    frame.data[0] = y;
+    frame.data[1] = u;
+    frame.data[2] = v;
+    frame.linesize = w;
+
+    display_open(NULL, w, h, disp_flags);
     signal(SIGINT, sigint);
 
     clock_gettime(CLOCK_REALTIME, &t1);
 
     for (i = 0; i < n && !stop; i++) {
-        yuv420_to_yuv422(fb_pages[page].buf,
-                         y, u, v, w, h, w, w,
-                         2*sinfo.xres_virtual);
-
-        if (fb_page_flip) {
-            sinfo.xoffset = fb_pages[page].x;
-            sinfo.yoffset = fb_pages[page].y;
-            xioctl(fd, FBIOPAN_DISPLAY, &sinfo);
-            page ^= fb_page_flip;
-        }
+        display_frame(&frame);
     }
 
     clock_gettime(CLOCK_REALTIME, &t2);
@@ -540,9 +404,7 @@ speed_test(char *size, int fullscreen, int dbl_buffer)
     fprintf(stderr, "%d ms, %d fps, read %lld B/s, write %lld B/s\n",
             j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
 
-    pinfo.enabled = 0;
-    ioctl(fd, OMAPFB_SETUP_PLANE, &pinfo);
-    close(fd);
+    display_close();
 
     free(buf);
 
@@ -559,8 +421,7 @@ main(int argc, char **argv)
     AVPacket pk;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
-    int fullscreen = 0;
-    int dbl_buffer = 1;
+    unsigned flags = OFB_DOUBLE_BUF;
     char *test_param = NULL;
     int opt;
     int err;
@@ -571,10 +432,10 @@ main(int argc, char **argv)
             bufsize = strtol(optarg, NULL, 0) * 1048576;
             break;
         case 'f':
-            fullscreen = 1;
+            flags |= OFB_FULLSCREEN;
             break;
         case 's':
-            dbl_buffer = 0;
+            flags &= ~OFB_DOUBLE_BUF;
             break;
         case 't':
             test_param = optarg;
@@ -586,7 +447,7 @@ main(int argc, char **argv)
     argv += optind;
 
     if (test_param)
-        return speed_test(test_param, fullscreen, dbl_buffer);
+        return speed_test(test_param, flags);
 
     if (argc < 1)
         return 1;
@@ -632,8 +493,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    dev_fd = setup_fb(st->codec->width, st->codec->height,
-                      fullscreen, dbl_buffer);
+    display_open(NULL, st->codec->width, st->codec->height, flags);
 
     signal(SIGINT, sigint);
 
@@ -663,9 +523,7 @@ main(int argc, char **argv)
     sem_post(&disp_sem);
     pthread_join(dispt, NULL);
 
-    pinfo.enabled = 0;
-    ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
-    close(dev_fd);
+    display_close();
 
     avcodec_close(avc);
     av_close_input_file(afc);

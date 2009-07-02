@@ -42,6 +42,8 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
+#include "timer.h"
+
 #define BUFFER_SIZE (64*1024*1024)
 
 extern void yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
@@ -313,21 +315,20 @@ disp_thread(void *p)
     struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
     int page = 0;
-    sem_t sleep_sem;
     int sval;
 
-    sem_init(&sleep_sem, 0, 0);
+    timer_init();
 
     while (sem_getvalue(&free_sem, &sval), sval && !stop)
         usleep(100000);
 
-    clock_gettime(CLOCK_REALTIME, &tstart);
+    timer_start(&tstart);
     ftime = t1 = tstart;
 
     while (!sem_wait(&disp_sem) && !stop) {
         struct frame *f;
 
-        sem_timedwait(&sleep_sem, &ftime);
+        timer_wait(&ftime);
 
         pthread_mutex_lock(&disp_lock);
         f = frames + disp_tail;
@@ -355,7 +356,7 @@ disp_thread(void *p)
         ofb_release_frame(f);
 
         if (++nf1 - nf2 == 50) {
-            clock_gettime(CLOCK_REALTIME, &t2);
+            timer_read(&t2);
             fprintf(stderr, "%3d fps, buffer %3d\r",
                     (nf1-nf2)*1000 / ts_diff(&t2, &t1),
                     disp_count);
@@ -365,16 +366,18 @@ disp_thread(void *p)
 
         ts_add(&ftime, fper);
 
-        clock_gettime(CLOCK_REALTIME, &t2);
+        timer_read(&t2);
         if (t2.tv_sec > ftime.tv_sec ||
             (t2.tv_sec == ftime.tv_sec && t2.tv_nsec > ftime.tv_nsec))
             ftime = t2;
     }
 
     if (nf1) {
-        clock_gettime(CLOCK_REALTIME, &t2);
+        timer_read(&t2);
         fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
     }
+
+    timer_close();
 
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;

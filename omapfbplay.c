@@ -504,7 +504,7 @@ main(int argc, char **argv)
         int gp = 0;
 
         if (pk.stream_index == st->index) {
-            avcodec_decode_video(avc, &f, &gp, pk.data, pk.size);
+            avcodec_decode_video2(avc, &f, &gp, &pk);
 
             if (gp) {
                 post_frame(&f);

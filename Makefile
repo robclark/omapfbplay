@@ -16,7 +16,7 @@ LDFLAGS = $(SYSROOT)
 LDFLAGS += $(and $(FFMPEG),-L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil)
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 
-DRV-y                    = timer.o
+DRV-y                    = sysclk.o
 DRV-$(OMAPFB)           += omapfb.o yuv.o
 DRV-$(XV)               += xv.o
 

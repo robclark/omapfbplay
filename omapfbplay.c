@@ -500,10 +500,11 @@ main(int argc, char **argv)
     sem_post(&disp_sem);
     pthread_join(dispt, NULL);
 
-    display_close();
-
     avcodec_close(avc);
     av_close_input_file(afc);
+    av_free(avc);
+
+    display_close();
 
     return 0;
 }

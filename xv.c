@@ -41,6 +41,7 @@ static Display *dpy;
 static Window win;
 static unsigned xv_port;
 struct frame_format ffmt;
+static unsigned num_frames;
 static struct frame *frames;
 static struct {
     XvImage *xvi;
@@ -53,7 +54,6 @@ alloc_buffers(const struct frame_format *ff, unsigned bufsize,
 {
     unsigned y_offset;
     unsigned uv_offset;
-    unsigned num_frames;
     unsigned frame_size;
     int i;
 
@@ -192,6 +192,16 @@ void display_frame(struct frame *f)
 
 void display_close(void)
 {
+    int i;
+
+    for (i = 0; i < num_frames; i++) {
+        XShmDetach(dpy, &xv_frames[i].xshm);
+        XFree(xv_frames[i].xvi);
+    }
+
+    free(frames);
+    free(xv_frames);
+
     XDestroyWindow(dpy, win);
     XCloseDisplay(dpy);
 }

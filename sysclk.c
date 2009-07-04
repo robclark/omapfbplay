@@ -29,7 +29,6 @@
 #include "timer.h"
 
 static sem_t sleep_sem;
-static struct timespec tstart;
 
 static int
 sysclk_open(const char *arg)
@@ -40,8 +39,7 @@ sysclk_open(const char *arg)
 static int
 sysclk_start(struct timespec *ts)
 {
-    clock_gettime(CLOCK_REALTIME, &tstart);
-    *ts = tstart;
+    clock_gettime(CLOCK_REALTIME, ts);
     return 0;
 }
 

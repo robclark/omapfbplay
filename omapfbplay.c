@@ -132,6 +132,7 @@ ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
         pic->linesize[i] = linesize;
     }
 
+    pic->opaque = f;
     pic->type = FF_BUFFER_TYPE_USER;
     pic->age = ++pic_num - f->pic_num;
     f->pic_num = pic_num;
@@ -147,7 +148,7 @@ ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
 static void
 ofb_release_frame(struct frame *f)
 {
-    unsigned fnum = f - frames;
+    unsigned fnum = f->frame_num;
 
     if (!--f->refs) {
         f->prev = free_head;
@@ -161,8 +162,7 @@ ofb_release_frame(struct frame *f)
 static void
 ofb_release_buffer(AVCodecContext *ctx, AVFrame *pic)
 {
-    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
-    struct frame *f = frames + fnum;
+    struct frame *f = pic->opaque;
     int i;
 
     for (i = 0; i < 3; i++)
@@ -174,8 +174,8 @@ ofb_release_buffer(AVCodecContext *ctx, AVFrame *pic)
 static int
 ofb_reget_buffer(AVCodecContext *ctx, AVFrame *pic)
 {
-    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
-    fprintf(stderr, "reget_buffer   %2d\n", fnum);
+    struct frame *f = pic->opaque;
+    fprintf(stderr, "reget_buffer   %2d\n", f->frame_num);
 
     if (!pic->data[0]) {
         pic->buffer_hints |= FF_BUFFER_HINTS_READABLE;
@@ -259,8 +259,8 @@ disp_thread(void *p)
 static void
 post_frame(AVFrame *pic)
 {
-    unsigned fnum = (pic->data[0] - frame_buf) / frame_size;
-    struct frame *f = frames + fnum;
+    struct frame *f = pic->opaque;
+    unsigned fnum = f->frame_num;
 
     f->prev = disp_head;
     f->next = -1;

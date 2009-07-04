@@ -30,6 +30,7 @@
 struct frame {
     uint8_t *data[3];
     int linesize;
+    int frame_num;
     int pic_num;
     int next;
     int prev;

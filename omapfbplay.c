@@ -127,6 +127,7 @@ timer_open(const char *drv)
 }
 
 static const struct display *display;
+static const struct timer *timer;
 static struct frame *frames;
 static unsigned num_frames;
 static int free_head;
@@ -220,13 +221,10 @@ disp_thread(void *p)
     AVStream *st = p;
     unsigned long fper =
         1000000000ull * st->r_frame_rate.den / st->r_frame_rate.num;
-    const struct timer *timer;
     struct timespec ftime;
     struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
     int sval;
-
-    timer = timer_open(NULL);
 
     while (sem_getvalue(&free_sem, &sval), sval && !stop)
         usleep(100000);
@@ -274,8 +272,6 @@ disp_thread(void *p)
         timer->read(&t2);
         fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
     }
-
-    timer->close();
 
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;
@@ -462,10 +458,11 @@ main(int argc, char **argv)
     unsigned flags = OFB_DOUBLE_BUF;
     char *test_param = NULL;
     char *dispdrv = NULL;
+    char *timer_drv = NULL;
     int opt;
     int err;
 
-    while ((opt = getopt(argc, argv, "b:d:fst:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fst:T:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -481,6 +478,9 @@ main(int argc, char **argv)
             break;
         case 't':
             test_param = optarg;
+            break;
+        case 'T':
+            timer_drv = optarg;
             break;
         }
     }
@@ -538,6 +538,10 @@ main(int argc, char **argv)
     if (!display)
         return 1;
 
+    timer = timer_open(timer_drv);
+    if (!timer)
+        return 1;
+
     init_frames();
 
     pthread_mutex_init(&disp_lock, NULL);
@@ -576,6 +580,7 @@ main(int argc, char **argv)
     av_close_input_file(afc);
     av_free(avc);
 
+    timer->close();
     display->close();
 
     return 0;

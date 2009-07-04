@@ -65,10 +65,10 @@ sysclk_close(void)
 }
 
 TIMER(sysclk) = {
-    .name = "system",
-    .open = sysclk_open,
+    .name  = "system",
+    .open  = sysclk_open,
     .start = sysclk_start,
-    .read = sysclk_read,
-    .wait = sysclk_wait,
+    .read  = sysclk_read,
+    .wait  = sysclk_wait,
     .close = sysclk_close,
 };

@@ -343,6 +343,12 @@ display_open(const char *drv, struct frame_format *fmt, unsigned flags,
             !disp->open(drvparam, fmt, flags, max_mem, frames, nframes))
             return disp;
 
+    if (drv)
+        fprintf(stderr, "Display driver '%.*s' failed or missing.\n",
+                dlen, drv);
+    else
+        fprintf(stderr, "No display driver available.\n");
+
     return NULL;
 }
 
@@ -497,10 +503,8 @@ main(int argc, char **argv)
 
     display = display_open(dispdrv, &frame_fmt, flags, bufsize,
                            &frames, &num_frames);
-    if (!display) {
-        fprintf(stderr, "Display driver '%s' failed or missing.\n", dispdrv);
+    if (!display)
         return 1;
-    }
 
     init_frames();
 

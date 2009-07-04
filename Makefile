@@ -10,5 +10,8 @@ LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 
 omapfbplay: omapfbplay.o omapfb.o timer.o yuv.o
 
+xvplay: omapfbplay.o xv.o timer.o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lXv -lXext -lX11
+
 clean:
-	rm -f *.o omapfbplay
+	rm -f *.o omapfbplay xvplay

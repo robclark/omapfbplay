@@ -31,35 +31,44 @@
 static sem_t sleep_sem;
 static struct timespec tstart;
 
-int
-timer_init(void)
+static int
+sysclk_open(const char *arg)
 {
     return sem_init(&sleep_sem, 0, 0);
 }
 
-int
-timer_start(struct timespec *ts)
+static int
+sysclk_start(struct timespec *ts)
 {
     clock_gettime(CLOCK_REALTIME, &tstart);
     *ts = tstart;
     return 0;
 }
 
-int
-timer_read(struct timespec *ts)
+static int
+sysclk_read(struct timespec *ts)
 {
     return clock_gettime(CLOCK_REALTIME, ts);
 }
 
-int
-timer_wait(struct timespec *ts)
+static int
+sysclk_wait(struct timespec *ts)
 {
     return sem_timedwait(&sleep_sem, ts);
 }
 
-int
-timer_close(void)
+static int
+sysclk_close(void)
 {
     sem_destroy(&sleep_sem);
     return 0;
 }
+
+TIMER(sysclk) = {
+    .name = "system",
+    .open = sysclk_open,
+    .start = sysclk_start,
+    .read = sysclk_read,
+    .wait = sysclk_wait,
+    .close = sysclk_close,
+};

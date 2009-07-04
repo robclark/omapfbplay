@@ -95,6 +95,37 @@ ts_add(struct timespec *ts, unsigned long nsec)
     }
 }
 
+static const struct timer *
+timer_open(const char *drv)
+{
+    const struct timer *tmr;
+    const char *drvparam = NULL;
+    int dlen = 0;
+
+    if (drv)
+        drvparam = strchr(drv, ':');
+
+    if (drvparam) {
+        dlen = drvparam - drv;
+        drvparam++;
+    } else if (drv) {
+        dlen = strlen(drv);
+    }
+
+    for (tmr = &ofb_timer_start; tmr < &ofb_timer_end; tmr++)
+        if ((!drv || (!strncmp(drv, tmr->name, dlen) && !tmr->name[dlen])) &&
+            !tmr->open(drvparam))
+            return tmr;
+
+    if (drv)
+        fprintf(stderr, "Timer driver '%.*s' failed or missing.\n",
+                dlen, drv);
+    else
+        fprintf(stderr, "No timer driver available.\n");
+
+    return NULL;
+}
+
 static const struct display *display;
 static struct frame *frames;
 static unsigned num_frames;
@@ -189,23 +220,24 @@ disp_thread(void *p)
     AVStream *st = p;
     unsigned long fper =
         1000000000ull * st->r_frame_rate.den / st->r_frame_rate.num;
+    const struct timer *timer;
     struct timespec ftime;
     struct timespec tstart, t1, t2;
     int nf1 = 0, nf2 = 0;
     int sval;
 
-    timer_init();
+    timer = timer_open(NULL);
 
     while (sem_getvalue(&free_sem, &sval), sval && !stop)
         usleep(100000);
 
-    timer_start(&tstart);
+    timer->start(&tstart);
     ftime = t1 = tstart;
 
     while (!sem_wait(&disp_sem) && !stop) {
         struct frame *f;
 
-        timer_wait(&ftime);
+        timer->wait(&ftime);
 
         pthread_mutex_lock(&disp_lock);
         f = frames + disp_tail;
@@ -222,7 +254,7 @@ disp_thread(void *p)
         ofb_release_frame(f);
 
         if (++nf1 - nf2 == 50) {
-            timer_read(&t2);
+            timer->read(&t2);
             fprintf(stderr, "%3d fps, buffer %3d\r",
                     (nf1-nf2)*1000 / ts_diff(&t2, &t1),
                     disp_count);
@@ -232,18 +264,18 @@ disp_thread(void *p)
 
         ts_add(&ftime, fper);
 
-        timer_read(&t2);
+        timer->read(&t2);
         if (t2.tv_sec > ftime.tv_sec ||
             (t2.tv_sec == ftime.tv_sec && t2.tv_nsec > ftime.tv_nsec))
             ftime = t2;
     }
 
     if (nf1) {
-        timer_read(&t2);
+        timer->read(&t2);
         fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
     }
 
-    timer_close();
+    timer->close();
 
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;

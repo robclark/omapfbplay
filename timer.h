@@ -27,10 +27,18 @@
 
 #include <time.h>
 
-int timer_init(void);
-int timer_start(struct timespec *ts);
-int timer_read(struct timespec *ts);
-int timer_wait(struct timespec *ts);
-int timer_close(void);
+struct timer {
+    const char *name;
+    int (*open)(const char *);
+    int (*start)(struct timespec *ts);
+    int (*read)(struct timespec *ts);
+    int (*wait)(struct timespec *ts);
+    int (*close)(void);
+};
+
+extern const struct timer ofb_timer_start, ofb_timer_end;
+
+#define TIMER(name) static const struct timer ofb_timer_##name  \
+    __attribute__((section(".ofb_timer"), used))
 
 #endif /* OFB_TIMER_H */

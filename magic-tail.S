@@ -22,8 +22,12 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-        .section .ofb_display, "a"
+        .macro  end_sec name
+        .section .ofb_\name, "a"
+        .global  ofb_\name\()_end
+        .type    ofb_\name\()_end, STT_OBJECT
+        .set     ofb_\name\()_end, .
+        .endm
 
-        .global ofb_display_end
-        .type   ofb_display_end, STT_OBJECT
-        .set    ofb_display_end, .
+        end_sec         display
+        end_sec         timer

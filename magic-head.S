@@ -22,8 +22,12 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-        .section .ofb_display, "a"
+        .macro  start_sec name
+        .section .ofb_\name, "a"
+        .global  ofb_\name\()_start
+        .type    ofb_\name\()_start, STT_OBJECT
+        .set     ofb_\name\()_start, .
+        .endm
 
-        .global ofb_display_start
-        .type   ofb_display_start, STT_OBJECT
-        .set    ofb_display_start, .
+        start_sec       display
+        start_sec       timer

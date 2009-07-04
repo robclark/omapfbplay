@@ -4,7 +4,7 @@ SYSROOT = $(addprefix --sysroot=,$(ROOT))
 
 CC = $(CROSS_COMPILE)gcc
 CPPFLAGS = $(SYSROOT) -I$(LINUX)/include -I$(FFMPEG)
-CFLAGS ?= -O3 -Wall -fomit-frame-pointer
+CFLAGS ?= -O3 -g -Wall -fomit-frame-pointer
 LDFLAGS = $(SYSROOT) -L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 

@@ -47,6 +47,7 @@ static struct {
     XvImage *xvi;
     XShmSegmentInfo xshm;
 } *xv_frames;
+static unsigned out_x, out_y, out_w, out_h;
 
 static int
 alloc_buffers(const struct frame_format *ff, unsigned bufsize,
@@ -106,6 +107,61 @@ err:
     free(xv_frames);
 
     return -1;
+}
+
+static void
+set_fullscreen(void)
+{
+    Atom supporting;
+    int netwm = 0;
+
+    supporting = XInternAtom(dpy, "_NET_SUPPORTING_WM_CHECK", True);
+
+    if (supporting != None) {
+        Atom xa_window = XInternAtom(dpy, "WINDOW", True);
+        unsigned long count, bytes_remain;
+        unsigned char *p = NULL, *p2 = NULL;
+        int r, r_format;
+        Atom r_type;
+
+        r = XGetWindowProperty(dpy, DefaultRootWindow(dpy),
+                               supporting, 0, 1, False, xa_window,
+                               &r_type, &r_format, &count, &bytes_remain, &p);
+
+        if (r == Success && p && r_type == xa_window && r_format == 32 &&
+            count == 1) {
+            Window w = *(Window *)p;
+
+            r = XGetWindowProperty(dpy, w, supporting, 0, 1,
+                                   False, xa_window, &r_type, &r_format,
+                                   &count, &bytes_remain, &p2);
+
+            if(r == Success && p2 && *p2 == *p && r_type == xa_window &&
+               r_format == 32 && count == 1){
+                netwm = 1;
+            }
+        }
+
+        if (p)  XFree(p);
+        if (p2) XFree(p2);
+    }
+
+    if (netwm) {
+        Atom wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
+        Atom wm_fs = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+        XEvent xev = {};
+
+        xev.type = ClientMessage;
+        xev.xclient.window = win;
+        xev.xclient.message_type = wm_state;
+        xev.xclient.format = 32;
+        xev.xclient.data.l[0] = 1;
+        xev.xclient.data.l[1] = wm_fs;
+        xev.xclient.data.l[2] = 0;
+
+        XSendEvent(dpy, RootWindow(dpy, DefaultScreen(dpy)),
+                   False, SubstructureNotifyMask, &xev);
+    }
 }
 
 int display_open(const char *name, struct frame_format *ff, unsigned flags,
@@ -172,9 +228,17 @@ int display_open(const char *name, struct frame_format *ff, unsigned flags,
     win = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)),
 			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,
 			InputOutput, CopyFromParent, 0, NULL);
+    XSelectInput(dpy, win, StructureNotifyMask);
+
+    out_x = 0;
+    out_y = 0;
+    out_w = ff->disp_w;
+    out_h = ff->disp_h;
 
     XMapWindow(dpy, win);
-    XSync(dpy, False);
+
+    if (flags & OFB_FULLSCREEN)
+        set_fullscreen();
 
     return 0;
 }
@@ -182,10 +246,24 @@ int display_open(const char *name, struct frame_format *ff, unsigned flags,
 void display_frame(struct frame *f)
 {
     GC gc = DefaultGC(dpy, DefaultScreen(dpy));
+    XEvent xe, cn;
+
+    cn.type = 0;
+
+    while (XCheckMaskEvent(dpy, ~0, &xe))
+        if (xe.type == ConfigureNotify)
+            cn = xe;
+
+    if (cn.type) {
+        XWindowAttributes xwa;
+        XGetWindowAttributes(dpy, win, &xwa);
+        out_w = xwa.width;
+        out_h = xwa.height;
+    }
 
     XvShmPutImage(dpy, xv_port, win, gc, xv_frames[f->frame_num].xvi,
                   ffmt.disp_x, ffmt.disp_y, ffmt.disp_w, ffmt.disp_h,
-                  0, 0, ffmt.disp_w, ffmt.disp_h, False);
+                  out_x, out_y, out_w, out_h, False);
 
     XFlush(dpy);
 }

@@ -50,6 +50,9 @@ static int dev_fd;
 static int fb_page_flip;
 static int fb_page;
 
+static uint8_t *frame_buf;
+static struct frame *frames;
+
 static int
 xioctl(const char *name, int fd, int req, void *param)
 {
@@ -65,8 +68,52 @@ xioctl(const char *name, int fd, int req, void *param)
 
 #define xioctl(fd, req, param) xioctl(#req, fd, req, param)
 
-int display_open(const char *name, unsigned width, unsigned height,
-                 unsigned flags)
+static int
+alloc_buffers(const struct frame_format *ff, unsigned bufsize,
+              struct frame **fr, unsigned *nf)
+{
+    int buf_w = ff->width, buf_h = ff->height;
+    unsigned frame_offset;
+    unsigned num_frames;
+    unsigned frame_size;
+    void *fbp;
+    int i;
+
+    frame_offset = ff->width * ff->disp_y + ff->disp_x;
+    frame_size = buf_w * buf_h * 3 / 2;
+    num_frames = MAX(bufsize / frame_size, 1);
+    bufsize = num_frames * frame_size;
+
+    fprintf(stderr, "Using %d frame buffers, frame_size=%d\n",
+            num_frames, frame_size);
+
+    if (posix_memalign(&fbp, 16, bufsize)) {
+        fprintf(stderr, "Error allocating frame buffers: %d bytes\n", bufsize);
+        return -1;
+    }
+
+    frame_buf = fbp;
+    frames = malloc(num_frames * sizeof(*frames));
+
+    for (i = 0; i < num_frames; i++) {
+        uint8_t *p = frame_buf + i * frame_size;
+
+        frames[i].data[0] = p + frame_offset;
+        frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
+        frames[i].data[2] = frames[i].data[1] + buf_w / 2;
+        frames[i].linesize[0] = ff->width;
+        frames[i].linesize[1] = ff->width;
+        frames[i].linesize[2] = ff->width;
+    }
+
+    *fr = frames;
+    *nf = num_frames;
+
+    return 0;
+}
+
+int display_open(const char *name, struct frame_format *ff, unsigned flags,
+                 unsigned bufsize, struct frame **frames, unsigned *nframes)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
@@ -74,7 +121,7 @@ int display_open(const char *name, unsigned width, unsigned height,
 
     if (fb == -1) {
         perror("/dev/fb0");
-        exit(1);
+        return -1;
     }
 
     xioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0);
@@ -84,7 +131,7 @@ int display_open(const char *name, unsigned width, unsigned height,
 
     if (fb == -1) {
         perror("/dev/fb1");
-        exit(1);
+        return -1;
     }
 
     xioctl(fb, FBIOGET_VSCREENINFO, &sinfo);
@@ -94,14 +141,14 @@ int display_open(const char *name, unsigned width, unsigned height,
     fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
     if (fbmem == MAP_FAILED) {
         perror("mmap");
-        exit(1);
+        return -1;
     }
 
     for (i = 0; i < minfo.size / 4; i++)
         ((uint32_t*)fbmem)[i] = 0x80008000;
 
-    sinfo.xres = MIN(sinfo_p0.xres, width)  & ~15;
-    sinfo.yres = MIN(sinfo_p0.yres, height) & ~15;
+    sinfo.xres = MIN(sinfo_p0.xres, ff->disp_w) & ~15;
+    sinfo.yres = MIN(sinfo_p0.yres, ff->disp_h) & ~15;
     sinfo.xoffset = 0;
     sinfo.yoffset = 0;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
@@ -134,6 +181,11 @@ int display_open(const char *name, unsigned width, unsigned height,
         pinfo.out_height = sinfo.yres;
     }
 
+    if (alloc_buffers(ff, bufsize, frames, nframes)) {
+        close(fb);
+        return -1;
+    }
+
     ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
 
     dev_fd = fb;
@@ -146,7 +198,7 @@ void display_frame(struct frame *f)
     yuv420_to_yuv422(fb_pages[fb_page].buf,
                      f->data[0], f->data[1], f->data[2],
                      sinfo.xres, sinfo.yres,
-                     f->linesize, f->linesize,
+                     f->linesize[0], f->linesize[1],
                      2*sinfo.xres_virtual);
 
     if (fb_page_flip) {
@@ -162,4 +214,7 @@ void display_close(void)
     pinfo.enabled = 0;
     ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
     close(dev_fd);
+
+    free(frame_buf);
+    free(frames);
 }

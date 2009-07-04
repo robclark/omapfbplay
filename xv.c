@@ -39,12 +39,77 @@
 
 static Display *dpy;
 static Window win;
-static XvImage *xvi;
 static unsigned xv_port;
-static XShmSegmentInfo xshm;
+struct frame_format ffmt;
+static struct frame *frames;
+static struct {
+    XvImage *xvi;
+    XShmSegmentInfo xshm;
+} *xv_frames;
 
-int display_open(const char *name, unsigned width, unsigned height,
-                 unsigned flags)
+static int
+alloc_buffers(const struct frame_format *ff, unsigned bufsize,
+              struct frame **fr, unsigned *nf)
+{
+    unsigned y_offset;
+    unsigned uv_offset;
+    unsigned num_frames;
+    unsigned frame_size;
+    int i;
+
+    ffmt = *ff;
+
+    y_offset = ff->width * ff->disp_y + ff->disp_x;
+    uv_offset = ff->width * ff->disp_y / 4 + ff->disp_x / 2;
+    frame_size = ff->width * ff->height * 3 / 2;
+    num_frames = MAX(bufsize / frame_size, 1);
+    bufsize = num_frames * frame_size;
+
+    frames = malloc(num_frames * sizeof(*frames));
+    if (!frames)
+        goto err;
+
+    xv_frames = malloc(num_frames * sizeof(*xv_frames));
+    if (!xv_frames)
+        goto err;
+
+    for (i = 0; i < num_frames; i++) {
+        XShmSegmentInfo *xshm = &xv_frames[i].xshm;
+        XvImage *xvi = XvShmCreateImage(dpy, xv_port, YV12, NULL,
+                                        ff->width, ff->height, xshm);
+
+        xshm->shmid = shmget(IPC_PRIVATE, xvi->data_size, IPC_CREAT | 0777);
+        xshm->shmaddr = shmat(xshm->shmid, 0, 0);
+        xshm->readOnly = False;
+        XShmAttach(dpy, xshm);
+        shmctl(xshm->shmid, IPC_RMID, NULL);
+
+        xvi->data = xshm->shmaddr;
+
+        xv_frames[i].xvi = xvi;
+
+        frames[i].data[0] = xvi->data + xvi->offsets[0] + y_offset;
+        frames[i].data[1] = xvi->data + xvi->offsets[2] + uv_offset;
+        frames[i].data[2] = xvi->data + xvi->offsets[1] + uv_offset;
+        frames[i].linesize[0] = xvi->pitches[0];
+        frames[i].linesize[1] = xvi->pitches[2];
+        frames[i].linesize[2] = xvi->pitches[1];
+    }
+
+    *fr = frames;
+    *nf = num_frames;
+
+    return 0;
+
+err:
+    free(frames);
+    free(xv_frames);
+
+    return -1;
+}
+
+int display_open(const char *name, struct frame_format *ff, unsigned flags,
+                 unsigned bufsize, struct frame **fr, unsigned *nframes)
 {
     unsigned ver, rev, rb, evb, erb;
     unsigned na;
@@ -101,21 +166,12 @@ int display_open(const char *name, unsigned width, unsigned height,
 
     fprintf(stderr, "Xv: using port %i\n", xv_port);
 
+    if (alloc_buffers(ff, bufsize, fr, nframes))
+        return -1;
+
     win = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)),
-			0, 0, width, height, 0, CopyFromParent,
+			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,
 			InputOutput, CopyFromParent, 0, NULL);
-
-    xvi = XvShmCreateImage(dpy, xv_port, YV12, NULL,
-			   width, height, &xshm);
-
-    xshm.shmid = shmget(IPC_PRIVATE, xvi->data_size, IPC_CREAT | 0777);
-    xshm.shmaddr = shmat(xshm.shmid, 0, 0);
-    xshm.readOnly = False;
-
-    XShmAttach(dpy, &xshm);
-    shmctl(xshm.shmid, IPC_RMID, NULL);
-
-    xvi->data = xshm.shmaddr;
 
     XMapWindow(dpy, win);
     XSync(dpy, False);
@@ -126,40 +182,10 @@ int display_open(const char *name, unsigned width, unsigned height,
 void display_frame(struct frame *f)
 {
     GC gc = DefaultGC(dpy, DefaultScreen(dpy));
-    uint8_t *src;
-    char *dst;
-    int i;
 
-    src = f->data[0];
-    dst = xvi->data + xvi->offsets[0];
-
-    for (i = 0; i < xvi->height; i++) {
-        memcpy(dst, src, xvi->width);
-        src += f->linesize;
-        dst += xvi->pitches[0];
-    }
-
-    src = f->data[2];
-    dst = xvi->data + xvi->offsets[1];
-
-    for (i = 0; i < xvi->height / 2; i++) {
-        memcpy(dst, src, xvi->width / 2);
-        src += f->linesize;
-        dst += xvi->pitches[1];
-    }
-
-    src = f->data[1];
-    dst = xvi->data + xvi->offsets[2];
-
-    for (i = 0; i < xvi->height / 2; i++) {
-        memcpy(dst, src, xvi->width / 2);
-        src += f->linesize;
-        dst += xvi->pitches[2];
-    }
-
-    XvShmPutImage(dpy, xv_port, win, gc, xvi,
-                  0, 0, xvi->width, xvi->height,
-                  0, 0, xvi->width, xvi->height, False);
+    XvShmPutImage(dpy, xv_port, win, gc, xv_frames[f->frame_num].xvi,
+                  ffmt.disp_x, ffmt.disp_y, ffmt.disp_w, ffmt.disp_h,
+                  0, 0, ffmt.disp_w, ffmt.disp_h, False);
 
     XFlush(dpy);
 }

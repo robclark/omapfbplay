@@ -27,9 +27,15 @@
 
 #include <stdint.h>
 
+struct frame_format {
+    unsigned width, height;
+    unsigned disp_x, disp_y;
+    unsigned disp_w, disp_h;
+};
+
 struct frame {
     uint8_t *data[3];
-    int linesize;
+    int linesize[3];
     int frame_num;
     int pic_num;
     int next;
@@ -39,11 +45,13 @@ struct frame {
 
 #define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
 #define MIN(a, b) ((a) < (b)? (a): (b))
+#define MAX(a, b) ((a) > (b)? (a): (b))
 
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
 
-int display_open(const char *name, unsigned w, unsigned h, unsigned flags);
+int display_open(const char *name, struct frame_format *fmt, unsigned flags,
+                 unsigned max_mem, struct frame **frames, unsigned *nframes);
 void display_frame(struct frame *f);
 void display_close(void);
 

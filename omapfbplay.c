@@ -95,11 +95,8 @@ ts_add(struct timespec *ts, unsigned long nsec)
     }
 }
 
-static struct frame  *frames;
-static uint8_t *frame_buf;
+static struct frame *frames;
 static unsigned num_frames;
-static unsigned frame_size;
-static unsigned linesize;
 static int free_head;
 static int free_tail;
 static int disp_head = -1;
@@ -129,7 +126,7 @@ ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
 
     for (i = 0; i < 3; i++) {
         pic->data[i] = pic->base[i] = f->data[i];
-        pic->linesize[i] = linesize;
+        pic->linesize[i] = f->linesize[i];
     }
 
     pic->opaque = f;
@@ -280,47 +277,31 @@ post_frame(AVFrame *pic)
     sem_post(&disp_sem);
 }
 
-static int
-alloc_buffers(AVStream *st, unsigned bufsize)
+static void
+frame_format(int width, int height, int border, struct frame_format *ff)
 {
-    int buf_w, buf_h;
-    unsigned frame_offset = 0;
-    void *fbp;
+    ff->width  = ALIGN(width,  16);
+    ff->height = ALIGN(height, 16);
+    ff->disp_x = 0;
+    ff->disp_y = 0;
+    ff->disp_w = width;
+    ff->disp_h = height;
+
+    if (border) {
+        ff->width  += EDGE_WIDTH * 2;
+        ff->height += EDGE_WIDTH * 2;
+        ff->disp_x = EDGE_WIDTH;
+        ff->disp_y = EDGE_WIDTH;
+    }
+}
+
+static void
+init_frames(void)
+{
     int i;
 
-    buf_w = ALIGN(st->codec->width,  16);
-    buf_h = ALIGN(st->codec->height, 16);
-
-    if (!(st->codec->flags & CODEC_FLAG_EMU_EDGE)) {
-        buf_w += EDGE_WIDTH * 2;
-        buf_h += EDGE_WIDTH * 2;
-        frame_offset = buf_w * EDGE_WIDTH + EDGE_WIDTH;
-    }
-
-    frame_size = buf_w * buf_h * 3 / 2;
-    num_frames = bufsize / frame_size;
-    bufsize = num_frames * frame_size;
-    linesize = buf_w;
-
-    fprintf(stderr, "Using %d frame buffers, frame_size=%d\n",
-            num_frames, frame_size);
-
-    if (posix_memalign(&fbp, 16, bufsize)) {
-        fprintf(stderr, "Error allocating frame buffers: %d bytes\n", bufsize);
-        exit(1);
-    }
-
-    frame_buf = fbp;
-    frames = malloc(num_frames * sizeof(*frames));
-
     for (i = 0; i < num_frames; i++) {
-        uint8_t *p = frame_buf + i * frame_size;
-
-        frames[i].data[0] = p + frame_offset;
-        frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
-        frames[i].data[2] = frames[i].data[1] + buf_w / 2;
-        frames[i].linesize = linesize;
-
+        frames[i].frame_num = i;
         frames[i].pic_num = -num_frames;
         frames[i].next = i + 1;
         frames[i].prev = i - 1;
@@ -329,8 +310,6 @@ alloc_buffers(AVStream *st, unsigned bufsize)
 
     free_head = num_frames - 1;
     frames[free_head].next = -1;
-
-    return 0;
 }
 
 static void
@@ -343,13 +322,12 @@ sigint(int s)
 static int
 speed_test(char *size, unsigned disp_flags)
 {
-    struct frame frame;
+    struct frame_format ff;
     struct timespec t1, t2;
     uint8_t *y, *u, *v;
     unsigned w, h = 0;
     unsigned n = 1000;
     unsigned bufsize;
-    void *buf;
     int i, j;
 
     w = strtoul(size, &size, 0);
@@ -366,37 +344,32 @@ speed_test(char *size, unsigned disp_flags)
         return 1;
     }
 
-    bufsize = w * h * 3 / 2;
-    if (posix_memalign(&buf, 16, bufsize)) {
-        fprintf(stderr, "Error allocating %u bytes\n", bufsize);
+    frame_format(w, h, 0, &ff);
+
+    if (display_open(NULL, &ff, disp_flags, 0, &frames, &num_frames))
         return 1;
-    }
 
-    y = buf;
-    u = y + w * h;
-    v = u + w / 2;
+    bufsize = ff.disp_w * ff.disp_h * 3 / 2;
 
-    memset(y, 128, w * h);
+    y = frames->data[0];
+    u = frames->data[1];
+    v = frames->data[2];
 
-    for (i = 0; i < h / 2; i++) {
-        for (j = 0; j < w / 2; j++) {
-            u[i*w + j] = 2*i;
-            v[i*w + j] = 2*j;
+    memset(y, 128, ff.disp_h * frames->linesize[0]);
+
+    for (i = 0; i < ff.disp_h / 2; i++) {
+        for (j = 0; j < ff.disp_w / 2; j++) {
+            u[i*frames->linesize[1] + j] = 2*i;
+            v[i*frames->linesize[2] + j] = 2*j;
         }
     }
 
-    frame.data[0] = y;
-    frame.data[1] = u;
-    frame.data[2] = v;
-    frame.linesize = w;
-
-    display_open(NULL, w, h, disp_flags);
     signal(SIGINT, sigint);
 
     clock_gettime(CLOCK_REALTIME, &t1);
 
     for (i = 0; i < n && !stop; i++) {
-        display_frame(&frame);
+        display_frame(frames);
     }
 
     clock_gettime(CLOCK_REALTIME, &t2);
@@ -405,8 +378,6 @@ speed_test(char *size, unsigned disp_flags)
             j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
 
     display_close();
-
-    free(buf);
 
     return 0;
 }
@@ -419,6 +390,7 @@ main(int argc, char **argv)
     AVCodecContext *avc;
     AVStream *st;
     AVPacket pk;
+    struct frame_format frame_fmt;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
     unsigned flags = OFB_DOUBLE_BUF;
@@ -469,12 +441,6 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    alloc_buffers(st, bufsize);
-
-    pthread_mutex_init(&disp_lock, NULL);
-    sem_init(&disp_sem, 0, 0);
-    sem_init(&free_sem, 0, num_frames - 1);
-
     avc = avcodec_alloc_context();
 
     avc->width          = st->codec->width;
@@ -493,7 +459,18 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    display_open(NULL, st->codec->width, st->codec->height, flags);
+    frame_format(st->codec->width, st->codec->height,
+                 !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
+                 &frame_fmt);
+
+    if (display_open(NULL, &frame_fmt, flags, bufsize, &frames, &num_frames))
+        return 1;
+
+    init_frames();
+
+    pthread_mutex_init(&disp_lock, NULL);
+    sem_init(&disp_sem, 0, 0);
+    sem_init(&free_sem, 0, num_frames - 1);
 
     signal(SIGINT, sigint);
 
@@ -527,9 +504,6 @@ main(int argc, char **argv)
 
     avcodec_close(avc);
     av_close_input_file(afc);
-
-    free(frame_buf);
-    free(frames);
 
     return 0;
 }

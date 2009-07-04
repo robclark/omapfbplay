@@ -95,6 +95,7 @@ ts_add(struct timespec *ts, unsigned long nsec)
     }
 }
 
+static const struct display *display;
 static struct frame *frames;
 static unsigned num_frames;
 static int free_head;
@@ -216,7 +217,7 @@ disp_thread(void *p)
 
         f->next = -1;
 
-        display_frame(f);
+        display->show(f);
 
         ofb_release_frame(f);
 
@@ -319,8 +320,34 @@ sigint(int s)
     sem_post(&disp_sem);
 }
 
+static const struct display *
+display_open(const char *drv, struct frame_format *fmt, unsigned flags,
+             unsigned max_mem, struct frame **frames, unsigned *nframes)
+{
+    const struct display *disp;
+    const char *drvparam = NULL;
+    int dlen = 0;
+
+    if (drv)
+        drvparam = strchr(drv, ':');
+
+    if (drvparam) {
+        dlen = drvparam - drv;
+        drvparam++;
+    } else if (drv) {
+        dlen = strlen(drv);
+    }
+
+    for (disp = &ofb_display_start; disp < &ofb_display_end; disp++)
+        if ((!drv || (!strncmp(drv, disp->name, dlen) && !disp->name[dlen])) &&
+            !disp->open(drvparam, fmt, flags, max_mem, frames, nframes))
+            return disp;
+
+    return NULL;
+}
+
 static int
-speed_test(char *size, unsigned disp_flags)
+speed_test(const char *drv, char *size, unsigned disp_flags)
 {
     struct frame_format ff;
     struct timespec t1, t2;
@@ -346,7 +373,8 @@ speed_test(char *size, unsigned disp_flags)
 
     frame_format(w, h, 0, &ff);
 
-    if (display_open(NULL, &ff, disp_flags, 0, &frames, &num_frames))
+    display = display_open(drv, &ff, disp_flags, 0, &frames, &num_frames);
+    if (!display)
         return 1;
 
     bufsize = ff.disp_w * ff.disp_h * 3 / 2;
@@ -369,7 +397,7 @@ speed_test(char *size, unsigned disp_flags)
     clock_gettime(CLOCK_REALTIME, &t1);
 
     for (i = 0; i < n && !stop; i++) {
-        display_frame(frames);
+        display->show(frames);
     }
 
     clock_gettime(CLOCK_REALTIME, &t2);
@@ -377,7 +405,7 @@ speed_test(char *size, unsigned disp_flags)
     fprintf(stderr, "%d ms, %d fps, read %lld B/s, write %lld B/s\n",
             j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
 
-    display_close();
+    display->close();
 
     return 0;
 }
@@ -395,13 +423,17 @@ main(int argc, char **argv)
     pthread_t dispt;
     unsigned flags = OFB_DOUBLE_BUF;
     char *test_param = NULL;
+    char *dispdrv = NULL;
     int opt;
     int err;
 
-    while ((opt = getopt(argc, argv, "b:fst:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fst:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
+            break;
+        case 'd':
+            dispdrv = optarg;
             break;
         case 'f':
             flags |= OFB_FULLSCREEN;
@@ -419,7 +451,7 @@ main(int argc, char **argv)
     argv += optind;
 
     if (test_param)
-        return speed_test(test_param, flags);
+        return speed_test(dispdrv, test_param, flags);
 
     if (argc < 1)
         return 1;
@@ -463,8 +495,12 @@ main(int argc, char **argv)
                  !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
                  &frame_fmt);
 
-    if (display_open(NULL, &frame_fmt, flags, bufsize, &frames, &num_frames))
+    display = display_open(dispdrv, &frame_fmt, flags, bufsize,
+                           &frames, &num_frames);
+    if (!display) {
+        fprintf(stderr, "Display driver '%s' failed or missing.\n", dispdrv);
         return 1;
+    }
 
     init_frames();
 
@@ -504,7 +540,7 @@ main(int argc, char **argv)
     av_close_input_file(afc);
     av_free(avc);
 
-    display_close();
+    display->close();
 
     return 0;
 }

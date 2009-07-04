@@ -164,8 +164,8 @@ set_fullscreen(void)
     }
 }
 
-int display_open(const char *name, struct frame_format *ff, unsigned flags,
-                 unsigned bufsize, struct frame **fr, unsigned *nframes)
+static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
+                   unsigned bufsize, struct frame **fr, unsigned *nframes)
 {
     unsigned ver, rev, rb, evb, erb;
     unsigned na;
@@ -243,7 +243,7 @@ int display_open(const char *name, struct frame_format *ff, unsigned flags,
     return 0;
 }
 
-void display_frame(struct frame *f)
+static void xv_show(struct frame *f)
 {
     GC gc = DefaultGC(dpy, DefaultScreen(dpy));
     XEvent xe, cn;
@@ -268,7 +268,7 @@ void display_frame(struct frame *f)
     XFlush(dpy);
 }
 
-void display_close(void)
+static void xv_close(void)
 {
     int i;
 
@@ -283,3 +283,10 @@ void display_close(void)
     XDestroyWindow(dpy, win);
     XCloseDisplay(dpy);
 }
+
+DISPLAY(xv) = {
+    .name  = "xv",
+    .open  = xv_open,
+    .show  = xv_show,
+    .close = xv_close,
+};

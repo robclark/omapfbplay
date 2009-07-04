@@ -22,48 +22,8 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_DISPLAY_H
-#define OFB_DISPLAY_H
+        .section .ofb_display, "a"
 
-#include <stdint.h>
-
-struct frame_format {
-    unsigned width, height;
-    unsigned disp_x, disp_y;
-    unsigned disp_w, disp_h;
-};
-
-struct frame {
-    uint8_t *data[3];
-    int linesize[3];
-    int frame_num;
-    int pic_num;
-    int next;
-    int prev;
-    int refs;
-};
-
-struct display {
-    const char *name;
-    int  (*open)(const char *name, struct frame_format *fmt, unsigned flags,
-                 unsigned max_mem, struct frame **frames, unsigned *nframes);
-    void (*show)(struct frame *f);
-    void (*close)(void);
-};
-
-extern const struct display ofb_display_start, ofb_display_end;
-
-#define DISPLAY(name) static const struct display ofb_display_##name    \
-    __attribute__((section(".ofb_display"), used))
-
-#define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
-#define MIN(a, b) ((a) < (b)? (a): (b))
-#define MAX(a, b) ((a) > (b)? (a): (b))
-
-#define OFB_FULLSCREEN 1
-#define OFB_DOUBLE_BUF 2
-
-void yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
-                      int w, int h, int yw, int cw, int dw);
-
-#endif /* OFB_DISPLAY_H */
+        .global ofb_display_end
+        .type   ofb_display_end, STT_OBJECT
+        .set    ofb_display_end, .

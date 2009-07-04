@@ -112,8 +112,9 @@ alloc_buffers(const struct frame_format *ff, unsigned bufsize,
     return 0;
 }
 
-int display_open(const char *name, struct frame_format *ff, unsigned flags,
-                 unsigned bufsize, struct frame **frames, unsigned *nframes)
+static int omapfb_open(const char *name, struct frame_format *ff,
+                       unsigned flags, unsigned bufsize,
+                       struct frame **frames, unsigned *nframes)
 {
     int fb = open("/dev/fb0", O_RDWR);
     uint8_t *fbmem;
@@ -193,7 +194,7 @@ int display_open(const char *name, struct frame_format *ff, unsigned flags,
     return 0;
 }
 
-void display_frame(struct frame *f)
+static void omapfb_show(struct frame *f)
 {
     yuv420_to_yuv422(fb_pages[fb_page].buf,
                      f->data[0], f->data[1], f->data[2],
@@ -209,7 +210,7 @@ void display_frame(struct frame *f)
     }
 }
 
-void display_close(void)
+static void omapfb_close(void)
 {
     pinfo.enabled = 0;
     ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
@@ -218,3 +219,10 @@ void display_close(void)
     free(frame_buf);
     free(frames);
 }
+
+DISPLAY(omapfb) = {
+    .name  = "omapfb",
+    .open  = omapfb_open,
+    .show  = omapfb_show,
+    .close = omapfb_close,
+};

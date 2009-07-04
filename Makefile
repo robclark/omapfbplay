@@ -8,19 +8,15 @@ CFLAGS ?= -O3 -g -Wall -fomit-frame-pointer
 LDFLAGS = $(SYSROOT) -L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 
-ALL = omapfbplay xvplay
+DRV-y                    = timer.o
+DRV-$(OMAPFB)           += omapfb.o yuv.o
+DRV-$(XV)               += xv.o
 
-default: $(or $(DEFAULT),help)
+LDLIBS-$(XV)            += -lXv -lXext -lX11
 
-help:
-	@echo Available targets: $(ALL)
+LDLIBS += $(LDLIBS-y)
 
-all: $(ALL)
-
-omapfbplay: omapfbplay.o omapfb.o timer.o yuv.o
-
-xvplay: omapfbplay.o xv.o timer.o
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lXv -lXext -lX11
+omapfbplay: omapfbplay.o magic-head.o $(DRV-y) magic-tail.o
 
 clean:
-	rm -f *.o omapfbplay xvplay
+	rm -f *.o omapfbplay

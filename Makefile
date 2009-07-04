@@ -1,5 +1,7 @@
 -include $(or $(CONFIG),$(ARCH),$(shell uname -m)).mk
 
+$(if $(findstring y,$(OMAPFB) $(XV)),,$(error No display drivers enabled))
+
 SYSROOT = $(addprefix --sysroot=,$(ROOT))
 
 CC = $(CROSS_COMPILE)gcc

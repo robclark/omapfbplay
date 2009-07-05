@@ -78,34 +78,64 @@ find_stream(AVFormatContext *afc)
 
 static int stop;
 
-static const struct timer *
-timer_open(const char *drv)
+static const void *
+find_driver(const char *name, const char **param, void *start, void *end)
 {
-    const struct timer **tmr;
-    const char *drvparam = NULL;
-    int dlen = 0;
+    const char ***drvend = end;
+    const char ***drv;
+    int nlen = 0;
 
-    if (drv)
-        drvparam = strchr(drv, ':');
+    *param = strchr(name, ':');
 
-    if (drvparam) {
-        dlen = drvparam - drv;
-        drvparam++;
-    } else if (drv) {
-        dlen = strlen(drv);
+    if (*param) {
+        nlen = *param - name;
+        (*param)++;
+    } else if (name) {
+        nlen = strlen(name);
     }
 
-    for (tmr = ofb_timer_start; tmr < ofb_timer_end; tmr++)
-        if ((!drv || (!strncmp(drv, tmr[0]->name, dlen) &&
-                      !tmr[0]->name[dlen])) &&
-            !tmr[0]->open(drvparam))
-            return *tmr;
+    for (drv = start; drv < drvend; drv++)
+        if (!strncmp(**drv, name, nlen) && !(**drv)[nlen])
+            return *drv;
 
-    if (drv)
-        fprintf(stderr, "Timer driver '%.*s' failed or missing.\n",
-                dlen, drv);
-    else
-        fprintf(stderr, "No timer driver available.\n");
+    return NULL;
+}
+
+static const struct timer *
+timer_open(const char *dname)
+{
+    const struct timer *tmr = NULL;
+    const char *param = NULL;
+
+    if (dname)
+        tmr = find_driver(dname, &param, ofb_timer_start, ofb_timer_end);
+    else if (ofb_timer_start < ofb_timer_end)
+        tmr = ofb_timer_start[0];
+
+    if (tmr && !tmr->open(param))
+        return tmr;
+
+    fprintf(stderr, "Timer driver failed or missing\n");
+
+    return NULL;
+}
+
+static const struct display *
+display_open(const char *dname, struct frame_format *fmt, unsigned flags,
+             unsigned max_mem, struct frame **frames, unsigned *nframes)
+{
+    const struct display *disp = NULL;
+    const char *param = NULL;
+
+    if (dname)
+        disp = find_driver(dname, &param, ofb_display_start, ofb_display_end);
+    else if (ofb_display_start < ofb_display_end)
+        disp = ofb_display_start[0];
+
+    if (disp && !disp->open(param, fmt, flags, max_mem, frames, nframes))
+        return disp;
+
+    fprintf(stderr, "Display driver failed or missing\n");
 
     return NULL;
 }
@@ -330,39 +360,6 @@ sigint(int s)
 {
     stop = 1;
     sem_post(&disp_sem);
-}
-
-static const struct display *
-display_open(const char *drv, struct frame_format *fmt, unsigned flags,
-             unsigned max_mem, struct frame **frames, unsigned *nframes)
-{
-    const struct display **disp;
-    const char *drvparam = NULL;
-    int dlen = 0;
-
-    if (drv)
-        drvparam = strchr(drv, ':');
-
-    if (drvparam) {
-        dlen = drvparam - drv;
-        drvparam++;
-    } else if (drv) {
-        dlen = strlen(drv);
-    }
-
-    for (disp = ofb_display_start; disp < ofb_display_end; disp++)
-        if ((!drv || (!strncmp(drv, disp[0]->name, dlen) &&
-                      !disp[0]->name[dlen])) &&
-            !disp[0]->open(drvparam, fmt, flags, max_mem, frames, nframes))
-            return *disp;
-
-    if (drv)
-        fprintf(stderr, "Display driver '%.*s' failed or missing.\n",
-                dlen, drv);
-    else
-        fprintf(stderr, "No display driver available.\n");
-
-    return NULL;
 }
 
 static int

@@ -39,7 +39,7 @@
 
 static Display *dpy;
 static Window win;
-static unsigned xv_port;
+static XvPortID xv_port;
 struct frame_format ffmt;
 static unsigned num_frames;
 static struct frame *frames;
@@ -220,7 +220,7 @@ static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
         return -1;
     }
 
-    fprintf(stderr, "Xv: using port %i\n", xv_port);
+    fprintf(stderr, "Xv: using port %li\n", xv_port);
 
     if (alloc_buffers(ff, bufsize, fr, nframes))
         return -1;

@@ -22,26 +22,22 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_TIMER_H
-#define OFB_TIMER_H
-
 #include <time.h>
+#include "timer.h"
 
-struct timer {
-    const char *name;
-    int (*open)(const char *);
-    int (*start)(struct timespec *ts);
-    int (*read)(struct timespec *ts);
-    int (*wait)(struct timespec *ts);
-    int (*close)(void);
-};
+unsigned
+ts_diff_ms(struct timespec *ts1, struct timespec *ts2)
+{
+    return (ts1->tv_sec - ts2->tv_sec) * 1000 +
+        (ts1->tv_nsec - ts2->tv_nsec) / 1000000;
+}
 
-extern const struct timer ofb_timer_start, ofb_timer_end;
-
-#define TIMER(name) static const struct timer ofb_timer_##name  \
-    __attribute__((section(".ofb_timer"), used))
-
-unsigned ts_diff_ms(struct timespec *tv1, struct timespec *tv2);
-void ts_add_ns(struct timespec *ts, unsigned nsec);
-
-#endif /* OFB_TIMER_H */
+void
+ts_add_ns(struct timespec *ts, unsigned nsec)
+{
+    ts->tv_nsec += nsec;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_sec++;
+        ts->tv_nsec -= 1000000000;
+    }
+}

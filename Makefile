@@ -24,7 +24,7 @@ LDLIBS-$(XV)            += -lXv -lXext -lX11
 
 LDLIBS += $(LDLIBS-y)
 
-omapfbplay: omapfbplay.o magic-head.o $(DRV-y) magic-tail.o
+omapfbplay: omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o
 
 clean:
 	rm -f *.o omapfbplay

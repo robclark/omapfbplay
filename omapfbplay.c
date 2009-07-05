@@ -78,23 +78,6 @@ find_stream(AVFormatContext *afc)
 
 static int stop;
 
-static int
-ts_diff(struct timespec *tv1, struct timespec *tv2)
-{
-    return (tv1->tv_sec - tv2->tv_sec) * 1000 +
-        (tv1->tv_nsec - tv2->tv_nsec) / 1000000;
-}
-
-static void
-ts_add(struct timespec *ts, unsigned long nsec)
-{
-    ts->tv_nsec += nsec;
-    if (ts->tv_nsec >= 1000000000) {
-        ts->tv_sec++;
-        ts->tv_nsec -= 1000000000;
-    }
-}
-
 static const struct timer *
 timer_open(const char *drv)
 {
@@ -254,13 +237,13 @@ disp_thread(void *p)
         if (++nf1 - nf2 == 50) {
             timer->read(&t2);
             fprintf(stderr, "%3d fps, buffer %3d\r",
-                    (nf1-nf2)*1000 / ts_diff(&t2, &t1),
+                    (nf1-nf2)*1000 / ts_diff_ms(&t2, &t1),
                     disp_count);
             nf2 = nf1;
             t1 = t2;
         }
 
-        ts_add(&ftime, fper);
+        ts_add_ns(&ftime, fper);
 
         timer->read(&t2);
         if (t2.tv_sec > ftime.tv_sec ||
@@ -270,7 +253,7 @@ disp_thread(void *p)
 
     if (nf1) {
         timer->read(&t2);
-        fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff(&t2, &tstart));
+        fprintf(stderr, "%3d fps\n", nf1*1000 / ts_diff_ms(&t2, &tstart));
     }
 
     while (disp_tail != -1) {
@@ -435,7 +418,7 @@ speed_test(const char *drv, char *size, unsigned disp_flags)
     }
 
     clock_gettime(CLOCK_REALTIME, &t2);
-    j = ts_diff(&t2, &t1);
+    j = ts_diff_ms(&t2, &t1);
     fprintf(stderr, "%d ms, %d fps, read %lld B/s, write %lld B/s\n",
             j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
 

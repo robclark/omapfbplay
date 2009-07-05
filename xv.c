@@ -204,8 +204,10 @@ static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
 
             xif = XvListImageFormats(dpy, xai[i].base_id + j, &nf);
             for (k = 0; k < nf; k++) {
-                if (xif[k].id == YV12) {
-                    xv_port = xai[i].base_id + j;
+                XvPortID port = xai[i].base_id + j;
+                if (xif[k].id == YV12 &&
+                    XvGrabPort(dpy, port, CurrentTime) == Success) {
+                    xv_port = port;
                     break;
                 }
             }
@@ -271,6 +273,8 @@ static void xv_show(struct frame *f)
 static void xv_close(void)
 {
     int i;
+
+    XvUngrabPort(dpy, xv_port, CurrentTime);
 
     for (i = 0; i < num_frames; i++) {
         XShmDetach(dpy, &xv_frames[i].xshm);

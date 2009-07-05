@@ -32,12 +32,37 @@ ts_diff_ms(struct timespec *ts1, struct timespec *ts2)
         (ts1->tv_nsec - ts2->tv_nsec) / 1000000;
 }
 
+unsigned
+ts_diff_ns(const struct timespec *ts1, const struct timespec *ts2)
+{
+    return (ts1->tv_sec - ts2->tv_sec) * 1000000000 +
+        ts1->tv_nsec - ts2->tv_nsec;
+}
+
 void
 ts_add_ns(struct timespec *ts, unsigned nsec)
 {
     ts->tv_nsec += nsec;
-    if (ts->tv_nsec >= 1000000000) {
+    while (ts->tv_nsec >= 1000000000) {
         ts->tv_sec++;
         ts->tv_nsec -= 1000000000;
+    }
+}
+
+void
+ts_add(struct timespec *ts, const struct timespec *td)
+{
+    ts->tv_sec += td->tv_sec;
+    ts_add_ns(ts, td->tv_nsec);
+}
+
+void
+ts_sub(struct timespec *ts, const struct timespec *td)
+{
+    ts->tv_sec  -= td->tv_sec;
+    ts->tv_nsec -= td->tv_nsec;
+    while (ts->tv_nsec < 0) {
+        ts->tv_sec--;
+        ts->tv_nsec += 1000000000;
     }
 }

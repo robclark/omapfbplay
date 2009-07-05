@@ -45,6 +45,9 @@ extern const struct timer *ofb_timer_start[], *ofb_timer_end[];
     static const struct timer ofb_timer_##name
 
 unsigned ts_diff_ms(struct timespec *tv1, struct timespec *tv2);
+unsigned ts_diff_ns(const struct timespec *ts1, const struct timespec *ts2);
 void ts_add_ns(struct timespec *ts, unsigned nsec);
+void ts_add(struct timespec *ts, const struct timespec *td);
+void ts_sub(struct timespec *ts, const struct timespec *td);
 
 #endif /* OFB_TIMER_H */

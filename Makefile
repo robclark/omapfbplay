@@ -17,6 +17,7 @@ LDFLAGS += $(and $(FFMPEG),-L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FF
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
 
 DRV-y                    = sysclk.o
+DRV-$(NETSYNC)          += netsync.o
 DRV-$(OMAPFB)           += omapfb.o yuv.o
 DRV-$(XV)               += xv.o
 

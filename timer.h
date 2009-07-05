@@ -36,10 +36,13 @@ struct timer {
     int (*close)(void);
 };
 
-extern const struct timer ofb_timer_start, ofb_timer_end;
+extern const struct timer *ofb_timer_start[], *ofb_timer_end[];
 
-#define TIMER(name) static const struct timer ofb_timer_##name  \
-    __attribute__((section(".ofb_timer"), used))
+#define TIMER(name)                                                     \
+    static const struct timer ofb_timer_##name;                         \
+    static const struct timer *ofb_timer_##name_p                       \
+    __attribute__((section(".ofb_timer"), used)) = &ofb_timer_##name;   \
+    static const struct timer ofb_timer_##name
 
 unsigned ts_diff_ms(struct timespec *tv1, struct timespec *tv2);
 void ts_add_ns(struct timespec *ts, unsigned nsec);

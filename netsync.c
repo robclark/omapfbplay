@@ -352,9 +352,6 @@ netsync_slave(void *p)
 
     fprintf(stderr, "netsync: slave starting\n");
 
-    msg.type = MSG_TYPE_HELLO;
-    send_msg(&msg, NULL, 0);
-
     while (poll(&pfd, 1, 1000) >= 0 && !ns_stop) {
         struct timespec rtime;
 
@@ -387,6 +384,28 @@ netsync_slave(void *p)
     }
 
     return NULL;
+}
+
+static int
+netsync_hello(void)
+{
+    struct netsync_msg omsg = { .type = MSG_TYPE_HELLO };
+    struct netsync_msg imsg;
+    struct pollfd pfd = { sockfd, POLLIN };
+    struct timespec ts;
+    int ack = 10;
+
+    while (--ack) {
+        send_msg(&omsg, NULL, 0);
+        if (!poll(&pfd, 1, 1000))
+            continue;
+        if (netsync_recv(sockfd, &imsg, &ts, NULL, 0) > 0 &&
+            imsg.type == MSG_TYPE_HELLO)
+            break;
+        sleep(1);
+    }
+
+    return ack;
 }
 
 static int
@@ -470,6 +489,11 @@ netsync_open(const char *arg)
     }
 
     fcntl(sockfd, F_SETFL, (int)O_NONBLOCK);
+
+    if (!slaves && !netsync_hello()) {
+        fprintf(stderr, "netsync: timeout waiting for master\n");
+        goto err;
+    }
 
     pthread_mutex_init(&ns_lock, NULL);
     pthread_cond_init(&ns_cond, NULL);

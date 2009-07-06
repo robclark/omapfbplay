@@ -390,36 +390,49 @@ netsync_open(const char *arg)
 {
     char *host = NULL;
     unsigned port = 0;
+    const char *p = arg;
+    char *q;
+    int len;
 
-    if (!arg) {
-        fprintf(stderr, "netsync: missing param\n");
-        return -1;
+    if (!arg)
+        goto argerr;
+
+    while ((len = strcspn(p, " ,;")) > 0) {
+        int c = p[0];
+
+        if (p[1] != '=')
+            goto argerr;
+
+        p += 2;
+        len -= 2;
+
+        switch (c) {
+        case 's':
+            num_slaves = strtol(p, NULL, 0);
+            break;
+        case 'm':
+            host = malloc(len + 1);
+            if (!host)
+                goto err;
+            q = memccpy(host, p, ':', len);
+            host[len] = 0;
+            if (q) {
+                q[-1] = 0;
+                port = strtol(p + (q - host), NULL, 0);
+            }
+            break;
+        case 'p':
+            port = strtol(p, NULL, 0);
+            break;
+        default:
+            goto argerr;
+        }
+
+        p += len + !!p[len];
     }
 
-    sscanf(arg, "s=%u,p=%u", &num_slaves, &port);
-
-    if (!num_slaves) {
-        char *p;
-
-        host = malloc(strlen(arg));
-        if (!host)
-            goto err;
-
-        if (sscanf(arg, "m=%s", host) <= 0)
-            goto err;
-
-        p = strchr(host, ':');
-        if (!p)
-            goto err;
-
-        *p++ = 0;
-        port = strtol(p, NULL, 0);
-    }
-
-    if (!port || (!num_slaves && !host)) {
-        fprintf(stderr, "netsync: syntax: s=slaves,p=port | m=host:port\n");
-        goto err;
-    }
+    if (!port || (!num_slaves && !host))
+        goto argerr;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd == -1)
@@ -463,10 +476,12 @@ netsync_open(const char *arg)
     pthread_create(&ns_thread, NULL,
                    slaves? netsync_master: netsync_slave, NULL);
 
+    free(host);
     return 0;
 
+argerr:
+    fprintf(stderr, "netsync: params: s=slaves p=port | m=host:port\n");
 err:
-    fprintf(stderr, "netsync: something went wrong\n");
     free(slaves);
     free(host);
     return -1;

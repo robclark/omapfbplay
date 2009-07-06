@@ -226,9 +226,7 @@ send_msg(const struct netsync_msg *msg, const struct sockaddr *addr,
          socklen_t addrlen)
 {
     uint8_t buf[MSG_SIZE];
-    unsigned len;
-
-    len = pack_msg(msg, buf);
+    unsigned len = pack_msg(msg, buf);
     return sendto(sockfd, buf, len, 0, addr, addrlen);
 }
 
@@ -347,12 +345,12 @@ netsync_master(void *p)
 static void *
 netsync_slave(void *p)
 {
-    struct netsync_msg msg = {};
     struct pollfd pfd = { sockfd, POLLIN };
 
     fprintf(stderr, "netsync: slave starting\n");
 
     while (poll(&pfd, 1, 1000) >= 0 && !ns_stop) {
+        struct netsync_msg msg;
         struct timespec rtime;
 
         if (netsync_recv(sockfd, &msg, &rtime, NULL, 0) <= 0)

@@ -248,7 +248,7 @@ bcast_msg(const struct netsync_msg *msg)
 
     len = pack_msg(msg, buf);
 
-    for (i = 0; i < num_slaves; i++) {
+    for (i = 0; i < seen_slaves; i++) {
         buf[2] = slaves[i].seqno++;
         sendto(sockfd, buf, len, 0, &slaves[i].addr, slaves[i].addrlen);
     }
@@ -334,9 +334,11 @@ netsync_master(void *p)
             continue;
         }
 
-        ping_slave(&slaves[next_ping]);
-        if (++next_ping == num_slaves)
-            next_ping = 0;
+        if (next_ping < seen_slaves) {
+            ping_slave(&slaves[next_ping]);
+            if (++next_ping == num_slaves)
+                next_ping = 0;
+        }
     }
 
     return NULL;

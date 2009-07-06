@@ -254,24 +254,37 @@ bcast_msg(const struct netsync_msg *msg)
     }
 }
 
+static int
+netsync_recv(int fd, struct netsync_msg *msg, struct timespec *rtime,
+             struct sockaddr *addr, socklen_t *addrlen)
+{
+    uint8_t buf[MSG_SIZE];
+    int n;
+
+    n = recvfrom(sockfd, buf, sizeof(buf), 0, addr, addrlen);
+    if (n < 0 && errno != EAGAIN)
+        return -1;
+    if (n <= 0)
+        return 0;
+
+    clock_gettime(CLOCK_REALTIME, rtime);
+
+    if (unpack_msg(msg, buf))
+        return 0;
+
+    return 1;
+}
+
 static void
 master_recv(void)
 {
-    uint8_t buf[MSG_SIZE];
     struct netsync_msg msg;
     struct sockaddr addr;
     socklen_t addrlen = sizeof(addr);
+    struct timespec rtime;
 
-    while (recvfrom(sockfd, buf, sizeof(buf), 0, &addr, &addrlen) > 0) {
-        struct timespec rtime;
-        struct slave *s;
-
-        clock_gettime(CLOCK_REALTIME, &rtime);
-
-        if (unpack_msg(&msg, buf))
-            continue;
-
-        s = find_slave(&addr, addrlen);
+    while (netsync_recv(sockfd, &msg, &rtime, &addr, &addrlen) > 0) {
+        struct slave *s = find_slave(&addr, addrlen);
         if (!s)
             continue;
 
@@ -332,12 +345,8 @@ netsync_master(void *p)
 static void *
 netsync_slave(void *p)
 {
-    uint8_t buf[MSG_SIZE];
     struct netsync_msg msg = {};
-    struct sockaddr addr;
-    socklen_t addrlen = sizeof(addr);
     struct pollfd pfd = { sockfd, POLLIN };
-    int n;
 
     fprintf(stderr, "netsync: slave starting\n");
 
@@ -347,16 +356,9 @@ netsync_slave(void *p)
     while (poll(&pfd, 1, 1000) >= 0 && !ns_stop) {
         struct timespec rtime;
 
-        n = recvfrom(sockfd, buf, sizeof(buf), 0, &addr, &addrlen);
-        if (n < 0 && errno != EAGAIN)
-            break;
-        if (n <= 0)
+        if (netsync_recv(sockfd, &msg, &rtime, NULL, 0) <= 0)
             continue;
 
-        clock_gettime(CLOCK_REALTIME, &rtime);
-
-        if (unpack_msg(&msg, buf))
-            continue;
 
         switch (msg.type) {
         case MSG_TYPE_GO:

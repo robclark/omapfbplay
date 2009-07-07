@@ -38,6 +38,7 @@
 
 #include "display.h"
 #include "timer.h"
+#include "util.h"
 
 #define BUFFER_SIZE (64*1024*1024)
 

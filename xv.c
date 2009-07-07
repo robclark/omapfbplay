@@ -34,6 +34,7 @@
 #include <X11/extensions/Xvlib.h>
 
 #include "display.h"
+#include "util.h"
 
 #define YV12 0x32315659
 

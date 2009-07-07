@@ -34,6 +34,7 @@
 #include <linux/omapfb.h>
 
 #include "display.h"
+#include "util.h"
 
 static struct fb_var_screeninfo sinfo_p0;
 static struct fb_var_screeninfo sinfo;

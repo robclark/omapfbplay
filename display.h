@@ -59,10 +59,6 @@ extern const struct display *ofb_display_start[], *ofb_display_end[];
     __attribute__((section(".ofb_display"), used)) = &ofb_display_##name; \
     static const struct display ofb_display_##name
 
-#define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
-#define MIN(a, b) ((a) < (b)? (a): (b))
-#define MAX(a, b) ((a) > (b)? (a): (b))
-
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
 

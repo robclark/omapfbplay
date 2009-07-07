@@ -2,6 +2,8 @@
 
 $(if $(findstring y,$(OMAPFB) $(XV)),,$(error No display drivers enabled))
 
+override O := $(and $(O),$(O:%/=%)/)
+
 SYSROOT = $(addprefix --sysroot=,$(ROOT))
 
 CC = $(CROSS_COMPILE)gcc
@@ -25,7 +27,15 @@ LDLIBS-$(XV)            += -lXv -lXext -lX11
 
 LDLIBS += $(LDLIBS-y)
 
-omapfbplay: omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o
+OBJ = omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o
+
+$(O)omapfbplay: $(addprefix $(O),$(OBJ))
+
+$(O)%.o: %.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $^
+
+$(O)%.o: %.S
+	$(CC) $(CPPFLAGS) $(ASFLAGS) -c -o $@ $^
 
 clean:
-	rm -f *.o omapfbplay
+	rm -f $(O)*.o $(O)omapfbplay

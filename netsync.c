@@ -37,6 +37,7 @@
 #include <netdb.h>
 
 #include "timer.h"
+#include "util.h"
 
 /*
  * Protocol:
@@ -81,6 +82,7 @@
 #define MSG_TYPE_LAST  MSG_TYPE_PONG
 
 #define PING_INTERVAL 1000
+#define PING_INTERVAL_MIN 100
 
 struct netsync_msg {
     uint8_t type;
@@ -321,12 +323,13 @@ static void *
 netsync_master(void *p)
 {
     struct pollfd pfd = { sockfd, POLLIN };
+    int ping_interval = MIN(PING_INTERVAL / num_slaves, PING_INTERVAL_MIN);
     int next_ping = 0;
     int n;
 
     fprintf(stderr, "netsync: master starting\n");
 
-    while (!ns_stop && (n = poll(&pfd, 1, PING_INTERVAL)) >= 0) {
+    while (!ns_stop && (n = poll(&pfd, 1, ping_interval)) >= 0) {
         if (n) {
             master_recv();
             continue;

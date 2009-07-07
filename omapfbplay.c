@@ -77,8 +77,6 @@ find_stream(AVFormatContext *afc)
     return st;
 }
 
-static int stop;
-
 static const void *
 find_driver(const char *name, const char **param, void *start, void *end)
 {
@@ -156,6 +154,8 @@ static sem_t disp_sem;
 static sem_t free_sem;
 
 static int pic_num;
+
+static int stop;
 
 #define EDGE_WIDTH 16
 

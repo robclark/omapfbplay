@@ -8,7 +8,7 @@ SYSROOT = $(addprefix --sysroot=,$(ROOT))
 
 CC = $(CROSS_COMPILE)gcc
 
-CPPFLAGS = $(SYSROOT)
+CPPFLAGS = $(SYSROOT) -MMD
 CPPFLAGS += $(and $(LINUX),-I$(LINUX)/include)
 CPPFLAGS += $(and $(FFMPEG),-I$(FFMPEG))
 
@@ -27,15 +27,17 @@ LDLIBS-$(XV)            += -lXv -lXext -lX11
 
 LDLIBS += $(LDLIBS-y)
 
-OBJ = omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o
+OBJ = $(addprefix $(O),omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o)
 
-$(O)omapfbplay: $(addprefix $(O),$(OBJ))
+$(O)omapfbplay: $(OBJ)
 
 $(O)%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $^
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 $(O)%.o: %.S
-	$(CC) $(CPPFLAGS) $(ASFLAGS) -c -o $@ $^
+	$(CC) $(CPPFLAGS) $(ASFLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(O)*.o $(O)omapfbplay
+
+-include $(OBJ:.o=.d)

@@ -462,6 +462,8 @@ netsync_open(const char *arg)
     if (sockfd == -1)
         goto err;
 
+    fcntl(sockfd, F_SETFL, (int)O_NONBLOCK);
+
     if (num_slaves) {
         struct sockaddr_in addr;
 
@@ -487,13 +489,11 @@ netsync_open(const char *arg)
 
         if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)))
             goto err;
-    }
 
-    fcntl(sockfd, F_SETFL, (int)O_NONBLOCK);
-
-    if (!slaves && !netsync_hello()) {
-        fprintf(stderr, "netsync: timeout waiting for master\n");
-        goto err;
+        if (!netsync_hello()) {
+            fprintf(stderr, "netsync: timeout waiting for master\n");
+            goto err;
+        }
     }
 
     pthread_mutex_init(&ns_lock, NULL);

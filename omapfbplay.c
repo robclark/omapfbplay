@@ -250,8 +250,6 @@ disp_thread(void *p)
     while (!sem_wait(&disp_sem) && !stop) {
         struct frame *f;
 
-        timer->wait(&ftime);
-
         pthread_mutex_lock(&disp_lock);
         f = frames + disp_tail;
         disp_tail = f->next;
@@ -262,6 +260,8 @@ disp_thread(void *p)
 
         f->next = -1;
 
+        display->prepare(f);
+        timer->wait(&ftime);
         display->show(f);
 
         ofb_release_frame(f);
@@ -414,6 +414,7 @@ speed_test(const char *drv, char *size, unsigned disp_flags)
     clock_gettime(CLOCK_REALTIME, &t1);
 
     for (i = 0; i < n && !stop; i++) {
+        display->prepare(frames);
         display->show(frames);
     }
 

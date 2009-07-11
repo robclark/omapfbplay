@@ -246,9 +246,8 @@ static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
     return 0;
 }
 
-static void xv_show(struct frame *f)
+static void xv_prepare(struct frame *f)
 {
-    GC gc = DefaultGC(dpy, DefaultScreen(dpy));
     XEvent xe, cn;
 
     cn.type = 0;
@@ -263,6 +262,11 @@ static void xv_show(struct frame *f)
         out_w = xwa.width;
         out_h = xwa.height;
     }
+}
+
+static void xv_show(struct frame *f)
+{
+    GC gc = DefaultGC(dpy, DefaultScreen(dpy));
 
     XvShmPutImage(dpy, xv_port, win, gc, xv_frames[f->frame_num].xvi,
                   ffmt.disp_x, ffmt.disp_y, ffmt.disp_w, ffmt.disp_h,
@@ -292,6 +296,7 @@ static void xv_close(void)
 DISPLAY(xv) = {
     .name  = "xv",
     .open  = xv_open,
+    .prepare = xv_prepare,
     .show  = xv_show,
     .close = xv_close,
 };

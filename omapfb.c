@@ -195,19 +195,33 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     return 0;
 }
 
-static void omapfb_show(struct frame *f)
+static inline void
+convert_frame(struct frame *f)
 {
     yuv420_to_yuv422(fb_pages[fb_page].buf,
                      f->data[0], f->data[1], f->data[2],
                      sinfo.xres, sinfo.yres,
                      f->linesize[0], f->linesize[1],
                      2*sinfo.xres_virtual);
+}
+
+static void omapfb_prepare(struct frame *f)
+{
+    if (fb_page_flip)
+        convert_frame(f);
+}
+
+static void omapfb_show(struct frame *f)
+{
+    if (!fb_page_flip)
+        convert_frame(f);
 
     if (fb_page_flip) {
         sinfo.xoffset = fb_pages[fb_page].x;
         sinfo.yoffset = fb_pages[fb_page].y;
         xioctl(dev_fd, FBIOPAN_DISPLAY, &sinfo);
         fb_page ^= fb_page_flip;
+        ioctl(dev_fd, OMAPFB_WAITFORGO);
     }
 }
 
@@ -224,6 +238,7 @@ static void omapfb_close(void)
 DISPLAY(omapfb) = {
     .name  = "omapfb",
     .open  = omapfb_open,
+    .prepare = omapfb_prepare,
     .show  = omapfb_show,
     .close = omapfb_close,
 };

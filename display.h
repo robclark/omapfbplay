@@ -47,6 +47,7 @@ struct display {
     const char *name;
     int  (*open)(const char *name, struct frame_format *fmt, unsigned flags,
                  unsigned max_mem, struct frame **frames, unsigned *nframes);
+    void (*prepare)(struct frame *f);
     void (*show)(struct frame *f);
     void (*close)(void);
 };

@@ -16,7 +16,7 @@ CFLAGS = -O3 -g -Wall -fomit-frame-pointer $(CPUFLAGS)
 
 LDFLAGS = $(SYSROOT)
 LDFLAGS += $(and $(FFMPEG),-L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil)
-LDLIBS = -lavformat -lavcodec -lavutil -lm -lz -lbz2 -lpthread -lrt
+LDLIBS = -lavformat -lavcodec -lavutil -lm -lpthread -lrt $(EXTRA_LIBS)
 
 DRV-y                    = sysclk.o
 DRV-$(NETSYNC)          += netsync.o

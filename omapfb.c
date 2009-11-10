@@ -40,6 +40,7 @@ static struct fb_var_screeninfo sinfo_p0;
 static struct fb_var_screeninfo sinfo;
 static struct omapfb_mem_info minfo;
 static struct omapfb_plane_info pinfo;
+static struct omapfb_plane_info pinfo_p0;
 
 static struct {
     unsigned x;
@@ -117,17 +118,18 @@ static int omapfb_open(const char *name, struct frame_format *ff,
                        unsigned flags, unsigned bufsize,
                        struct frame **frames, unsigned *nframes)
 {
-    int fb = open("/dev/fb0", O_RDWR);
+    int fb0 = open("/dev/fb0", O_RDWR);
+    int fb;
     uint8_t *fbmem;
     int i;
 
-    if (fb == -1) {
+    if (fb0 == -1) {
         perror("/dev/fb0");
         return -1;
     }
 
-    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo_p0);
-    close(fb);
+    xioctl(fb0, FBIOGET_VSCREENINFO, &sinfo_p0);
+    xioctl(fb0, OMAPFB_QUERY_PLANE, &pinfo_p0);
 
     fb = open("/dev/fb1", O_RDWR);
 
@@ -190,7 +192,19 @@ static int omapfb_open(const char *name, struct frame_format *ff,
 
     ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
 
+    if (pinfo.pos_x <= pinfo_p0.pos_x  &&
+        pinfo.pos_y >= pinfo_p0.pos_y  &&
+        pinfo.pos_x + pinfo.out_width  >=
+            pinfo_p0.pos_x + pinfo_p0.out_width &&
+        pinfo.pos_y + pinfo.out_height >=
+            pinfo_p0.pos_y + pinfo_p0.out_height) {
+        struct omapfb_plane_info p0 = pinfo_p0;
+        p0.enabled = 0;
+        ioctl(fb0, OMAPFB_SETUP_PLANE, &p0);
+    }
+
     dev_fd = fb;
+    close(fb0);
 
     return 0;
 }
@@ -227,6 +241,13 @@ static void omapfb_show(struct frame *f)
 
 static void omapfb_close(void)
 {
+    int fb0 = open("/dev/fb0", O_RDWR);
+
+    if (fb0 != -1) {
+        ioctl(fb0, OMAPFB_SETUP_PLANE, &pinfo_p0);
+        close(fb0);
+    }
+
     pinfo.enabled = 0;
     ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
     close(dev_fd);

@@ -120,6 +120,7 @@ static int omapfb_open(const char *name, struct frame_format *ff,
 {
     int fb0 = open("/dev/fb0", O_RDWR);
     int fb;
+    unsigned mem_size;
     uint8_t *fbmem;
     int i;
 
@@ -142,26 +143,41 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     xioctl(fb, OMAPFB_QUERY_PLANE, &pinfo);
     xioctl(fb, OMAPFB_QUERY_MEM, &minfo);
 
-    fbmem = mmap(NULL, minfo.size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
-    if (fbmem == MAP_FAILED) {
-        perror("mmap");
-        return -1;
-    }
-
-    for (i = 0; i < minfo.size / 4; i++)
-        ((uint32_t*)fbmem)[i] = 0x80008000;
-
     sinfo.xres = MIN(sinfo_p0.xres, ff->disp_w) & ~15;
     sinfo.yres = MIN(sinfo_p0.yres, ff->disp_h) & ~15;
     sinfo.xoffset = 0;
     sinfo.yoffset = 0;
     sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
+    mem_size = minfo.size;
+
+    if (!mem_size) {
+        struct omapfb_mem_info mi = minfo;
+        mi.size = sinfo.xres * sinfo.yres * 4;
+        if (ioctl(fb, OMAPFB_SETUP_MEM, &mi)) {
+            mi.size /= 2;
+            if (ioctl(fb, OMAPFB_SETUP_MEM, &mi)) {
+                perror("Unable to allocate FB memory");
+                return -1;
+            }
+        }
+        mem_size = mi.size;
+    }        
+
+    fbmem = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
+    if (fbmem == MAP_FAILED) {
+        perror("mmap");
+        return -1;
+    }
+
+    for (i = 0; i < mem_size / 4; i++)
+        ((uint32_t*)fbmem)[i] = 0x80008000;
+
     fb_pages[0].x = 0;
     fb_pages[0].y = 0;
     fb_pages[0].buf = fbmem;
 
-    if (flags & OFB_DOUBLE_BUF && minfo.size >= sinfo.xres * sinfo.yres * 2) {
+    if (flags & OFB_DOUBLE_BUF && mem_size >= sinfo.xres * sinfo.yres * 4) {
         sinfo.xres_virtual = sinfo.xres;
         sinfo.yres_virtual = sinfo.yres * 2;
         fb_pages[1].x = 0;
@@ -250,6 +266,7 @@ static void omapfb_close(void)
 
     pinfo.enabled = 0;
     ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
+    ioctl(dev_fd, OMAPFB_SETUP_MEM, &minfo);
     close(dev_fd);
 
     free(frame_buf);

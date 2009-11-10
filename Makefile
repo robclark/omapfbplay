@@ -9,7 +9,7 @@ SYSROOT = $(addprefix --sysroot=,$(ROOT))
 CC = $(CROSS_COMPILE)gcc
 
 CPPFLAGS = $(SYSROOT) -MMD
-CPPFLAGS += $(and $(LINUX),-I$(LINUX)/include)
+CPPFLAGS += $(and $(LINUX),-I$(LINUX)/include $(and $(ARCH),-I$(LINUX)/arch/$(ARCH)/include))
 CPPFLAGS += $(and $(FFMPEG),-I$(FFMPEG))
 
 CFLAGS = -O3 -g -Wall -fomit-frame-pointer $(CPUFLAGS)

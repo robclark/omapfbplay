@@ -12,7 +12,7 @@ CPPFLAGS = $(SYSROOT) -MMD
 CPPFLAGS += $(and $(LINUX),-I$(LINUX)/include $(and $(ARCH),-I$(LINUX)/arch/$(ARCH)/include))
 CPPFLAGS += $(and $(FFMPEG),-I$(FFMPEG))
 
-CFLAGS = -O3 -g -Wall -fomit-frame-pointer $(CPUFLAGS)
+CFLAGS = -O3 -g -Wall -fomit-frame-pointer -fno-tree-vectorize $(CPUFLAGS)
 
 LDFLAGS = $(SYSROOT)
 LDFLAGS += $(and $(FFMPEG),-L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil)

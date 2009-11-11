@@ -36,11 +36,12 @@
 #include "display.h"
 #include "util.h"
 
-static struct fb_var_screeninfo sinfo_p0;
-static struct fb_var_screeninfo sinfo;
-static struct omapfb_mem_info minfo;
-static struct omapfb_plane_info pinfo;
-static struct omapfb_plane_info pinfo_p0;
+static struct fb_var_screeninfo gfx_sinfo;
+static struct omapfb_plane_info gfx_pinfo;
+
+static struct fb_var_screeninfo vid_sinfo;
+static struct omapfb_plane_info vid_pinfo;
+static struct omapfb_mem_info   vid_minfo;
 
 static struct {
     unsigned x;
@@ -134,24 +135,24 @@ static int omapfb_open(const char *name, struct frame_format *ff,
         goto err;
     }
 
-    xioctl(gfx_fd, FBIOGET_VSCREENINFO, &sinfo_p0);
-    xioctl(gfx_fd, OMAPFB_QUERY_PLANE, &pinfo_p0);
+    xioctl(gfx_fd, FBIOGET_VSCREENINFO, &gfx_sinfo);
+    xioctl(gfx_fd, OMAPFB_QUERY_PLANE,  &gfx_pinfo);
 
-    xioctl(vid_fd, FBIOGET_VSCREENINFO, &sinfo);
-    xioctl(vid_fd, OMAPFB_QUERY_PLANE, &pinfo);
-    xioctl(vid_fd, OMAPFB_QUERY_MEM, &minfo);
+    xioctl(vid_fd, FBIOGET_VSCREENINFO, &vid_sinfo);
+    xioctl(vid_fd, OMAPFB_QUERY_PLANE,  &vid_pinfo);
+    xioctl(vid_fd, OMAPFB_QUERY_MEM,    &vid_minfo);
 
-    sinfo.xres = MIN(sinfo_p0.xres, ff->disp_w) & ~15;
-    sinfo.yres = MIN(sinfo_p0.yres, ff->disp_h) & ~15;
-    sinfo.xoffset = 0;
-    sinfo.yoffset = 0;
-    sinfo.nonstd = OMAPFB_COLOR_YUY422;
+    vid_sinfo.xres = MIN(gfx_sinfo.xres, ff->disp_w) & ~15;
+    vid_sinfo.yres = MIN(gfx_sinfo.yres, ff->disp_h) & ~15;
+    vid_sinfo.xoffset = 0;
+    vid_sinfo.yoffset = 0;
+    vid_sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
-    mem_size = minfo.size;
+    mem_size = vid_minfo.size;
 
     if (!mem_size) {
-        struct omapfb_mem_info mi = minfo;
-        mi.size = sinfo.xres * sinfo.yres * 4;
+        struct omapfb_mem_info mi = vid_minfo;
+        mi.size = vid_sinfo.xres * vid_sinfo.yres * 4;
         if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
             mi.size /= 2;
             if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
@@ -175,45 +176,46 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     fb_pages[0].y = 0;
     fb_pages[0].buf = fbmem;
 
-    if (flags & OFB_DOUBLE_BUF && mem_size >= sinfo.xres * sinfo.yres * 4) {
-        sinfo.xres_virtual = sinfo.xres;
-        sinfo.yres_virtual = sinfo.yres * 2;
+    if (flags & OFB_DOUBLE_BUF &&
+        mem_size >= vid_sinfo.xres * vid_sinfo.yres * 4) {
+        vid_sinfo.xres_virtual = vid_sinfo.xres;
+        vid_sinfo.yres_virtual = vid_sinfo.yres * 2;
         fb_pages[1].x = 0;
-        fb_pages[1].y = sinfo.yres;
-        fb_pages[1].buf = fbmem + sinfo.xres * sinfo.yres * 2;
+        fb_pages[1].y = vid_sinfo.yres;
+        fb_pages[1].buf = fbmem + vid_sinfo.xres * vid_sinfo.yres * 2;
         fb_page_flip = 1;
     }
 
-    xioctl(vid_fd, FBIOPUT_VSCREENINFO, &sinfo);
+    xioctl(vid_fd, FBIOPUT_VSCREENINFO, &vid_sinfo);
 
-    pinfo.enabled = 1;
+    vid_pinfo.enabled = 1;
     if (flags & OFB_FULLSCREEN) {
-        pinfo.pos_x = 0;
-        pinfo.pos_y = 0;
-        pinfo.out_width  = sinfo_p0.xres;
-        pinfo.out_height = sinfo_p0.yres;
+        vid_pinfo.pos_x = 0;
+        vid_pinfo.pos_y = 0;
+        vid_pinfo.out_width  = gfx_sinfo.xres;
+        vid_pinfo.out_height = gfx_sinfo.yres;
     } else {
-        pinfo.pos_x = sinfo_p0.xres / 2 - sinfo.xres / 2;
-        pinfo.pos_y = sinfo_p0.yres / 2 - sinfo.yres / 2;
-        pinfo.out_width  = sinfo.xres;
-        pinfo.out_height = sinfo.yres;
+        vid_pinfo.pos_x = gfx_sinfo.xres / 2 - vid_sinfo.xres / 2;
+        vid_pinfo.pos_y = gfx_sinfo.yres / 2 - vid_sinfo.yres / 2;
+        vid_pinfo.out_width  = vid_sinfo.xres;
+        vid_pinfo.out_height = vid_sinfo.yres;
     }
 
     if (alloc_buffers(ff, bufsize, frames, nframes)) {
         goto err;
     }
 
-    xioctl(vid_fd, OMAPFB_SETUP_PLANE, &pinfo);
+    xioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
 
-    if (pinfo.pos_x <= pinfo_p0.pos_x  &&
-        pinfo.pos_y >= pinfo_p0.pos_y  &&
-        pinfo.pos_x + pinfo.out_width  >=
-            pinfo_p0.pos_x + pinfo_p0.out_width &&
-        pinfo.pos_y + pinfo.out_height >=
-            pinfo_p0.pos_y + pinfo_p0.out_height) {
-        struct omapfb_plane_info p0 = pinfo_p0;
-        p0.enabled = 0;
-        xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &p0);
+    if (vid_pinfo.pos_x <= gfx_pinfo.pos_x  &&
+        vid_pinfo.pos_y >= gfx_pinfo.pos_y  &&
+        vid_pinfo.pos_x + vid_pinfo.out_width  >=
+            gfx_pinfo.pos_x + gfx_pinfo.out_width &&
+        vid_pinfo.pos_y + vid_pinfo.out_height >=
+            gfx_pinfo.pos_y + gfx_pinfo.out_height) {
+        struct omapfb_plane_info pi = gfx_pinfo;
+        pi.enabled = 0;
+        xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pi);
     }
 
     return 0;
@@ -228,9 +230,9 @@ convert_frame(struct frame *f)
 {
     yuv420_to_yuv422(fb_pages[fb_page].buf,
                      f->data[0], f->data[1], f->data[2],
-                     sinfo.xres, sinfo.yres,
+                     vid_sinfo.xres, vid_sinfo.yres,
                      f->linesize[0], f->linesize[1],
-                     2*sinfo.xres_virtual);
+                     2*vid_sinfo.xres_virtual);
 }
 
 static void omapfb_prepare(struct frame *f)
@@ -245,9 +247,9 @@ static void omapfb_show(struct frame *f)
         convert_frame(f);
 
     if (fb_page_flip) {
-        sinfo.xoffset = fb_pages[fb_page].x;
-        sinfo.yoffset = fb_pages[fb_page].y;
-        ioctl(vid_fd, FBIOPAN_DISPLAY, &sinfo);
+        vid_sinfo.xoffset = fb_pages[fb_page].x;
+        vid_sinfo.yoffset = fb_pages[fb_page].y;
+        ioctl(vid_fd, FBIOPAN_DISPLAY, &vid_sinfo);
         fb_page ^= fb_page_flip;
         ioctl(vid_fd, OMAPFB_WAITFORGO);
     }
@@ -255,11 +257,11 @@ static void omapfb_show(struct frame *f)
 
 static void omapfb_close(void)
 {
-    ioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pinfo_p0);
+    ioctl(gfx_fd, OMAPFB_SETUP_PLANE, &gfx_pinfo);
 
-    pinfo.enabled = 0;
-    ioctl(vid_fd, OMAPFB_SETUP_PLANE, &pinfo);
-    ioctl(vid_fd, OMAPFB_SETUP_MEM, &minfo);
+    vid_pinfo.enabled = 0;
+    ioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
+    ioctl(vid_fd, OMAPFB_SETUP_MEM,   &vid_minfo);
 
     cleanup();
 }

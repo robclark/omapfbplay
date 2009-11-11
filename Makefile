@@ -2,20 +2,23 @@
 
 $(if $(findstring y,$(OMAPFB) $(XV)),,$(error No display drivers enabled))
 
-override O := $(and $(O),$(O:%/=%)/)
+override O := $(O:%=$(O:%/=%)/)
 
 SYSROOT = $(addprefix --sysroot=,$(ROOT))
 
 CC = $(CROSS_COMPILE)gcc
 
 CPPFLAGS = $(SYSROOT) -MMD
-CPPFLAGS += $(and $(LINUX),-I$(LINUX)/include $(and $(ARCH),-I$(LINUX)/arch/$(ARCH)/include))
-CPPFLAGS += $(and $(FFMPEG),-I$(FFMPEG))
+CPPFLAGS += $(LINUX:%=-I%/include)
+CPPFLAGS += $(and $(LINUX),$(ARCH),-I$(LINUX)/arch/$(ARCH)/include)
+CPPFLAGS += $(FFMPEG:%=-I%)
 
 CFLAGS = -O3 -g -Wall -fomit-frame-pointer -fno-tree-vectorize $(CPUFLAGS)
 
+FFMPEG_LIBS = libavcodec libavformat libavutil
+
 LDFLAGS = $(SYSROOT)
-LDFLAGS += $(and $(FFMPEG),-L$(FFMPEG)/libavcodec -L$(FFMPEG)/libavformat -L$(FFMPEG)/libavutil)
+LDFLAGS += $(FFMPEG:%=$(addprefix -L$(FFMPEG)/,$(FFMPEG_LIBS)))
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lpthread -lrt $(EXTRA_LIBS)
 
 DRV-y                    = sysclk.o

@@ -56,7 +56,7 @@ extern const struct display *ofb_display_start[], *ofb_display_end[];
 
 #define DISPLAY(name)                                                   \
     static const struct display ofb_display_##name;                     \
-    static const struct display *ofb_display_##name_p                   \
+    static const struct display *const ofb_display_##name_p             \
     __attribute__((section(".ofb_display"), used)) = &ofb_display_##name; \
     static const struct display ofb_display_##name
 

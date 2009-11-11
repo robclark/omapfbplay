@@ -40,7 +40,7 @@ extern const struct timer *ofb_timer_start[], *ofb_timer_end[];
 
 #define TIMER(name)                                                     \
     static const struct timer ofb_timer_##name;                         \
-    static const struct timer *ofb_timer_##name_p                       \
+    static const struct timer *const ofb_timer_##name_p                 \
     __attribute__((section(".ofb_timer"), used)) = &ofb_timer_##name;   \
     static const struct timer ofb_timer_##name
 

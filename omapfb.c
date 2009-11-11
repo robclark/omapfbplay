@@ -48,27 +48,27 @@ static struct {
     uint8_t *buf;
 } fb_pages[2];
 
-static int dev_fd;
+static int gfx_fd = -1;
+static int vid_fd = -1;
 static int fb_page_flip;
 static int fb_page;
 
 static uint8_t *frame_buf;
 static struct frame *frames;
 
-static int
-xioctl(const char *name, int fd, int req, void *param)
+#define xioctl(fd, req, param) do {             \
+        if (ioctl(fd, req, param) == -1)        \
+            goto err;                           \
+    } while (0)
+
+static void
+cleanup(void)
 {
-    int err = ioctl(fd, req, param);
-
-    if (err == -1) {
-        perror(name);
-        exit(1);
-    }
-
-    return err;
+    close(gfx_fd);   gfx_fd    = -1;
+    close(vid_fd);   vid_fd    = -1;
+    free(frame_buf); frame_buf = NULL;
+    free(frames);    frames    = NULL;
 }
-
-#define xioctl(fd, req, param) xioctl(#req, fd, req, param)
 
 static int
 alloc_buffers(const struct frame_format *ff, unsigned bufsize,
@@ -118,30 +118,28 @@ static int omapfb_open(const char *name, struct frame_format *ff,
                        unsigned flags, unsigned bufsize,
                        struct frame **frames, unsigned *nframes)
 {
-    int fb0 = open("/dev/fb0", O_RDWR);
-    int fb;
     unsigned mem_size;
     uint8_t *fbmem;
     int i;
 
-    if (fb0 == -1) {
+    gfx_fd = open("/dev/fb0", O_RDWR);
+    if (gfx_fd == -1) {
         perror("/dev/fb0");
-        return -1;
+        goto err;
     }
 
-    xioctl(fb0, FBIOGET_VSCREENINFO, &sinfo_p0);
-    xioctl(fb0, OMAPFB_QUERY_PLANE, &pinfo_p0);
-
-    fb = open("/dev/fb1", O_RDWR);
-
-    if (fb == -1) {
-        perror("/dev/fb1");
-        return -1;
+    vid_fd = open("/dev/fb1", O_RDWR);
+    if (vid_fd == -1) {
+        perror("/dev/fb0");
+        goto err;
     }
 
-    xioctl(fb, FBIOGET_VSCREENINFO, &sinfo);
-    xioctl(fb, OMAPFB_QUERY_PLANE, &pinfo);
-    xioctl(fb, OMAPFB_QUERY_MEM, &minfo);
+    xioctl(gfx_fd, FBIOGET_VSCREENINFO, &sinfo_p0);
+    xioctl(gfx_fd, OMAPFB_QUERY_PLANE, &pinfo_p0);
+
+    xioctl(vid_fd, FBIOGET_VSCREENINFO, &sinfo);
+    xioctl(vid_fd, OMAPFB_QUERY_PLANE, &pinfo);
+    xioctl(vid_fd, OMAPFB_QUERY_MEM, &minfo);
 
     sinfo.xres = MIN(sinfo_p0.xres, ff->disp_w) & ~15;
     sinfo.yres = MIN(sinfo_p0.yres, ff->disp_h) & ~15;
@@ -154,9 +152,9 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     if (!mem_size) {
         struct omapfb_mem_info mi = minfo;
         mi.size = sinfo.xres * sinfo.yres * 4;
-        if (ioctl(fb, OMAPFB_SETUP_MEM, &mi)) {
+        if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
             mi.size /= 2;
-            if (ioctl(fb, OMAPFB_SETUP_MEM, &mi)) {
+            if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
                 perror("Unable to allocate FB memory");
                 return -1;
             }
@@ -164,10 +162,10 @@ static int omapfb_open(const char *name, struct frame_format *ff,
         mem_size = mi.size;
     }        
 
-    fbmem = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, fb, 0);
+    fbmem = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, vid_fd, 0);
     if (fbmem == MAP_FAILED) {
         perror("mmap");
-        return -1;
+        goto err;
     }
 
     for (i = 0; i < mem_size / 4; i++)
@@ -186,7 +184,7 @@ static int omapfb_open(const char *name, struct frame_format *ff,
         fb_page_flip = 1;
     }
 
-    xioctl(fb, FBIOPUT_VSCREENINFO, &sinfo);
+    xioctl(vid_fd, FBIOPUT_VSCREENINFO, &sinfo);
 
     pinfo.enabled = 1;
     if (flags & OFB_FULLSCREEN) {
@@ -202,11 +200,10 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     }
 
     if (alloc_buffers(ff, bufsize, frames, nframes)) {
-        close(fb);
-        return -1;
+        goto err;
     }
 
-    ioctl(fb, OMAPFB_SETUP_PLANE, &pinfo);
+    xioctl(vid_fd, OMAPFB_SETUP_PLANE, &pinfo);
 
     if (pinfo.pos_x <= pinfo_p0.pos_x  &&
         pinfo.pos_y >= pinfo_p0.pos_y  &&
@@ -216,13 +213,14 @@ static int omapfb_open(const char *name, struct frame_format *ff,
             pinfo_p0.pos_y + pinfo_p0.out_height) {
         struct omapfb_plane_info p0 = pinfo_p0;
         p0.enabled = 0;
-        ioctl(fb0, OMAPFB_SETUP_PLANE, &p0);
+        xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &p0);
     }
 
-    dev_fd = fb;
-    close(fb0);
-
     return 0;
+
+err:
+    cleanup();
+    return -1;
 }
 
 static inline void
@@ -249,28 +247,21 @@ static void omapfb_show(struct frame *f)
     if (fb_page_flip) {
         sinfo.xoffset = fb_pages[fb_page].x;
         sinfo.yoffset = fb_pages[fb_page].y;
-        xioctl(dev_fd, FBIOPAN_DISPLAY, &sinfo);
+        ioctl(vid_fd, FBIOPAN_DISPLAY, &sinfo);
         fb_page ^= fb_page_flip;
-        ioctl(dev_fd, OMAPFB_WAITFORGO);
+        ioctl(vid_fd, OMAPFB_WAITFORGO);
     }
 }
 
 static void omapfb_close(void)
 {
-    int fb0 = open("/dev/fb0", O_RDWR);
-
-    if (fb0 != -1) {
-        ioctl(fb0, OMAPFB_SETUP_PLANE, &pinfo_p0);
-        close(fb0);
-    }
+    ioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pinfo_p0);
 
     pinfo.enabled = 0;
-    ioctl(dev_fd, OMAPFB_SETUP_PLANE, &pinfo);
-    ioctl(dev_fd, OMAPFB_SETUP_MEM, &minfo);
-    close(dev_fd);
+    ioctl(vid_fd, OMAPFB_SETUP_PLANE, &pinfo);
+    ioctl(vid_fd, OMAPFB_SETUP_MEM, &minfo);
 
-    free(frame_buf);
-    free(frames);
+    cleanup();
 }
 
 DISPLAY(omapfb) = {

@@ -82,19 +82,23 @@ static const void *
 find_driver(const char *name, const char **param, void *start)
 {
     const char ***drv = start;
+    const char *prm;
     int nlen = 0;
 
     if (!name)
         return *drv;
 
-    *param = strchr(name, ':');
+    prm = strchr(name, ':');
 
-    if (*param) {
-        nlen = *param - name;
-        (*param)++;
-    } else if (name) {
+    if (prm) {
+        nlen = prm - name;
+        prm++;
+    } else {
         nlen = strlen(name);
     }
+
+    if (param)
+        *param = prm;
 
     for (; *drv; drv++)
         if (!strncmp(**drv, name, nlen) && !(**drv)[nlen])

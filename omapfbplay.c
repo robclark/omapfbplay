@@ -80,8 +80,11 @@ find_stream(AVFormatContext *afc)
 static const void *
 find_driver(const char *name, const char **param, void *start)
 {
-    const char ***drv;
+    const char ***drv = start;
     int nlen = 0;
+
+    if (!name)
+        return *drv;
 
     *param = strchr(name, ':');
 
@@ -92,11 +95,11 @@ find_driver(const char *name, const char **param, void *start)
         nlen = strlen(name);
     }
 
-    for (drv = start; *drv; drv++)
+    for (; *drv; drv++)
         if (!strncmp(**drv, name, nlen) && !(**drv)[nlen])
-            return *drv;
+            break;
 
-    return NULL;
+    return *drv;
 }
 
 static const struct timer *
@@ -105,11 +108,7 @@ timer_open(const char *dname)
     const struct timer *tmr = NULL;
     const char *param = NULL;
 
-    if (dname)
-        tmr = find_driver(dname, &param, ofb_timer_start);
-    else
-        tmr = ofb_timer_start[0];
-
+    tmr = find_driver(dname, &param, ofb_timer_start);
     if (tmr && !tmr->open(param))
         return tmr;
 
@@ -125,11 +124,7 @@ display_open(const char *dname, struct frame_format *fmt, unsigned flags,
     const struct display *disp = NULL;
     const char *param = NULL;
 
-    if (dname)
-        disp = find_driver(dname, &param, ofb_display_start);
-    else
-        disp = ofb_display_start[0];
-
+    disp = find_driver(dname, &param, ofb_display_start);
     if (disp && !disp->open(param, fmt, flags, max_mem, frames, nframes))
         return disp;
 

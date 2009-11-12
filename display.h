@@ -45,13 +45,18 @@ struct frame {
     int refs;
 };
 
+struct display_props {
+    unsigned width, height;
+};
+
 struct display {
     const char *name;
-    int  (*open)(const char *name, struct frame_format *fmt, unsigned flags,
-                 unsigned max_mem, struct frame **frames, unsigned *nframes);
+    int  (*open)(const char *name);
+    int  (*enable)(struct frame_format *fmt, unsigned flags);
     void (*prepare)(struct frame *f);
     void (*show)(struct frame *f);
     void (*close)(void);
+    const struct memman *memman;
 };
 
 extern const struct display *ofb_display_start[];

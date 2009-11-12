@@ -20,15 +20,22 @@
     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
- */
+*/
 
-        .macro  start_sec name
-        .section .ofb_\name, "a"
-        .global  ofb_\name\()_start
-        .type    ofb_\name\()_start, STT_OBJECT
-        .set     ofb_\name\()_start, .
-        .endm
+#ifndef OFB_MEM_H
+#define OFB_MEM_H
 
-        start_sec       display
-        start_sec       timer
-        start_sec       memman
+#include <stdint.h>
+
+#include "display.h"
+
+struct memman {
+    const char *name;
+    int  (*alloc_frames)(const struct frame_format *ff, unsigned max_size,
+                         struct frame **fr, unsigned *nf);
+    void (*free_frames)(struct frame *frames, unsigned nf);
+};
+
+extern const struct memman *ofb_memman_start[];
+
+#endif /* OFB_MEM_H */

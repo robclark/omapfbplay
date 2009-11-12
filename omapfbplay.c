@@ -39,6 +39,7 @@
 #include "display.h"
 #include "timer.h"
 #include "util.h"
+#include "memman.h"
 
 #define BUFFER_SIZE (64*1024*1024)
 
@@ -118,14 +119,13 @@ timer_open(const char *dname)
 }
 
 static const struct display *
-display_open(const char *dname, struct frame_format *fmt, unsigned flags,
-             unsigned max_mem, struct frame **frames, unsigned *nframes)
+display_open(const char *dname)
 {
     const struct display *disp = NULL;
     const char *param = NULL;
 
     disp = find_driver(dname, &param, ofb_display_start);
-    if (disp && !disp->open(param, fmt, flags, max_mem, frames, nframes))
+    if (disp && !disp->open(param))
         return disp;
 
     fprintf(stderr, "Display driver failed or missing\n");
@@ -384,7 +384,7 @@ speed_test(const char *drv, char *size, unsigned disp_flags)
 
     frame_format(w, h, 0, &ff);
 
-    display = display_open(drv, &ff, disp_flags, 0, &frames, &num_frames);
+    display = display_open(drv);
     if (!display)
         return 1;
 
@@ -431,6 +431,7 @@ main(int argc, char **argv)
     AVStream *st;
     AVPacket pk;
     struct frame_format frame_fmt;
+    const struct memman *memman = NULL;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
     unsigned flags = OFB_DOUBLE_BUF;
@@ -439,6 +440,9 @@ main(int argc, char **argv)
     char *timer_drv = NULL;
     int opt;
     int err;
+    int ret = 0;
+
+#define error(n) do { ret = n; goto out; } while (0)
 
     while ((opt = getopt(argc, argv, "b:d:fst:T:")) != -1) {
         switch (opt) {
@@ -511,14 +515,25 @@ main(int argc, char **argv)
                  !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
                  &frame_fmt);
 
-    display = display_open(dispdrv, &frame_fmt, flags, bufsize,
-                           &frames, &num_frames);
+    display = display_open(dispdrv);
     if (!display)
-        return 1;
+        error(1);
+
+    memman = display->memman;
+    if (!memman)
+        memman = ofb_memman_start[0];
+    if (!memman)
+        error(1);
 
     timer = timer_open(timer_drv);
     if (!timer)
-        return 1;
+        error(1);
+
+    if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
+        error(1);
+
+    if (display->enable(&frame_fmt, flags))
+        error(1);
 
     init_frames();
 
@@ -554,12 +569,14 @@ main(int argc, char **argv)
     sem_post(&disp_sem);
     pthread_join(dispt, NULL);
 
-    avcodec_close(avc);
-    av_close_input_file(afc);
+out:
+    if (avc) avcodec_close(avc);
+    if (afc) av_close_input_file(afc);
     av_free(avc);
 
-    timer->close();
-    display->close();
+    if (timer)   timer->close();
+    if (memman)  memman->free_frames(frames, num_frames);
+    if (display) display->close();
 
-    return 0;
+    return ret;
 }

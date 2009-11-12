@@ -29,3 +29,4 @@
 
         end_sec         display
         end_sec         timer
+        end_sec         memman

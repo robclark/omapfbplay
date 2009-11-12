@@ -21,7 +21,7 @@ LDFLAGS = $(SYSROOT)
 LDFLAGS += $(FFMPEG:%=$(addprefix -L$(FFMPEG)/,$(FFMPEG_LIBS)))
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lpthread -lrt $(EXTRA_LIBS)
 
-DRV-y                    = sysclk.o
+DRV-y                    = sysclk.o sysmem.o
 DRV-$(NETSYNC)          += netsync.o
 DRV-$(OMAPFB)           += omapfb.o yuv.o
 DRV-$(XV)               += xv.o

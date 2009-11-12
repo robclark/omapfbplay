@@ -35,6 +35,7 @@
 
 #include "display.h"
 #include "util.h"
+#include "memman.h"
 
 #define YV12 0x32315659
 
@@ -51,8 +52,8 @@ static struct {
 static unsigned out_x, out_y, out_w, out_h;
 
 static int
-alloc_buffers(const struct frame_format *ff, unsigned bufsize,
-              struct frame **fr, unsigned *nf)
+xv_alloc_frames(const struct frame_format *ff, unsigned bufsize,
+                struct frame **fr, unsigned *nf)
 {
     unsigned y_offset;
     unsigned uv_offset;
@@ -165,8 +166,7 @@ set_fullscreen(void)
     }
 }
 
-static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
-                   unsigned bufsize, struct frame **fr, unsigned *nframes)
+static int xv_open(const char *name)
 {
     unsigned ver, rev, rb, evb, erb;
     unsigned na;
@@ -225,9 +225,11 @@ static int xv_open(const char *name, struct frame_format *ff, unsigned flags,
 
     fprintf(stderr, "Xv: using port %li\n", xv_port);
 
-    if (alloc_buffers(ff, bufsize, fr, nframes))
-        return -1;
+    return 0;
+}
 
+static int xv_enable(struct frame_format *ff, unsigned flags)
+{
     win = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)),
 			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,
 			InputOutput, CopyFromParent, 0, NULL);
@@ -277,9 +279,14 @@ static void xv_show(struct frame *f)
 
 static void xv_close(void)
 {
-    int i;
-
     XvUngrabPort(dpy, xv_port, CurrentTime);
+    XDestroyWindow(dpy, win);
+    XCloseDisplay(dpy);
+}
+
+static void xv_free_frames(struct frame *frames, unsigned nf)
+{
+    int i;
 
     for (i = 0; i < num_frames; i++) {
         XShmDetach(dpy, &xv_frames[i].xshm);
@@ -288,15 +295,20 @@ static void xv_close(void)
 
     free(frames);
     free(xv_frames);
-
-    XDestroyWindow(dpy, win);
-    XCloseDisplay(dpy);
 }
+
+const struct memman xv_mem = {
+    .name = "xv",
+    .alloc_frames = xv_alloc_frames,
+    .free_frames  = xv_free_frames,
+};
 
 DISPLAY(xv) = {
     .name  = "xv",
     .open  = xv_open,
+    .enable  = xv_enable,
     .prepare = xv_prepare,
     .show  = xv_show,
     .close = xv_close,
+    .memman = &xv_mem,
 };

@@ -54,9 +54,6 @@ static int vid_fd = -1;
 static int fb_page_flip;
 static int fb_page;
 
-static uint8_t *frame_buf;
-static struct frame *frames;
-
 #define xioctl(fd, req, param) do {             \
         if (ioctl(fd, req, param) == -1)        \
             goto err;                           \
@@ -67,63 +64,10 @@ cleanup(void)
 {
     close(gfx_fd);   gfx_fd    = -1;
     close(vid_fd);   vid_fd    = -1;
-    free(frame_buf); frame_buf = NULL;
-    free(frames);    frames    = NULL;
 }
 
-static int
-alloc_buffers(const struct frame_format *ff, unsigned bufsize,
-              struct frame **fr, unsigned *nf)
+static int omapfb_open(const char *name)
 {
-    int buf_w = ff->width, buf_h = ff->height;
-    unsigned frame_offset;
-    unsigned num_frames;
-    unsigned frame_size;
-    void *fbp;
-    int i;
-
-    frame_offset = ff->width * ff->disp_y + ff->disp_x;
-    frame_size = buf_w * buf_h * 3 / 2;
-    num_frames = MAX(bufsize / frame_size, 1);
-    bufsize = num_frames * frame_size;
-
-    fprintf(stderr, "Using %d frame buffers, frame_size=%d\n",
-            num_frames, frame_size);
-
-    if (posix_memalign(&fbp, 16, bufsize)) {
-        fprintf(stderr, "Error allocating frame buffers: %d bytes\n", bufsize);
-        return -1;
-    }
-
-    frame_buf = fbp;
-    frames = malloc(num_frames * sizeof(*frames));
-
-    for (i = 0; i < num_frames; i++) {
-        uint8_t *p = frame_buf + i * frame_size;
-
-        frames[i].data[0] = p + frame_offset;
-        frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
-        frames[i].data[2] = frames[i].data[1] + buf_w / 2;
-        frames[i].linesize[0] = ff->width;
-        frames[i].linesize[1] = ff->width;
-        frames[i].linesize[2] = ff->width;
-    }
-
-    *fr = frames;
-    *nf = num_frames;
-
-    return 0;
-}
-
-static int omapfb_open(const char *name, struct frame_format *ff,
-                       unsigned flags, unsigned bufsize,
-                       struct frame **frames, unsigned *nframes)
-{
-    unsigned frame_size;
-    unsigned mem_size;
-    uint8_t *fbmem;
-    int i;
-
     gfx_fd = open("/dev/fb0", O_RDWR);
     if (gfx_fd == -1) {
         perror("/dev/fb0");
@@ -142,6 +86,21 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     xioctl(vid_fd, FBIOGET_VSCREENINFO, &vid_sinfo);
     xioctl(vid_fd, OMAPFB_QUERY_PLANE,  &vid_pinfo);
     xioctl(vid_fd, OMAPFB_QUERY_MEM,    &vid_minfo);
+
+    return 0;
+
+err:
+    cleanup();
+    return -1;
+}
+
+static int
+omapfb_enable(struct frame_format *ff, unsigned flags)
+{
+    unsigned frame_size;
+    unsigned mem_size;
+    uint8_t *fbmem;
+    int i;
 
     vid_sinfo.xres = MIN(gfx_sinfo.xres, ff->disp_w) & ~15;
     vid_sinfo.yres = MIN(gfx_sinfo.yres, ff->disp_h) & ~15;
@@ -190,6 +149,7 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     xioctl(vid_fd, FBIOPUT_VSCREENINFO, &vid_sinfo);
 
     vid_pinfo.enabled = 1;
+
     if (flags & OFB_FULLSCREEN) {
         vid_pinfo.pos_x = 0;
         vid_pinfo.pos_y = 0;
@@ -200,10 +160,6 @@ static int omapfb_open(const char *name, struct frame_format *ff,
         vid_pinfo.pos_y = gfx_sinfo.yres / 2 - vid_sinfo.yres / 2;
         vid_pinfo.out_width  = vid_sinfo.xres;
         vid_pinfo.out_height = vid_sinfo.yres;
-    }
-
-    if (alloc_buffers(ff, bufsize, frames, nframes)) {
-        goto err;
     }
 
     xioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
@@ -222,7 +178,6 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     return 0;
 
 err:
-    cleanup();
     return -1;
 }
 
@@ -270,6 +225,7 @@ static void omapfb_close(void)
 DISPLAY(omapfb) = {
     .name  = "omapfb",
     .open  = omapfb_open,
+    .enable  = omapfb_enable,
     .prepare = omapfb_prepare,
     .show  = omapfb_show,
     .close = omapfb_close,

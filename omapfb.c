@@ -132,7 +132,7 @@ static int omapfb_open(const char *name, struct frame_format *ff,
 
     vid_fd = open("/dev/fb1", O_RDWR);
     if (vid_fd == -1) {
-        perror("/dev/fb0");
+        perror("/dev/fb1");
         goto err;
     }
 

@@ -25,8 +25,6 @@
 #ifndef OFB_MEM_H
 #define OFB_MEM_H
 
-#include <stdint.h>
-
 #include "display.h"
 
 struct memman {

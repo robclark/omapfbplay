@@ -38,7 +38,7 @@ struct timer {
     int (*close)(void);
 };
 
-extern const struct timer *ofb_timer_start[], *ofb_timer_end[];
+extern const struct timer *ofb_timer_start[];
 
 #define TIMER(name) DRIVER(timer, name)
 

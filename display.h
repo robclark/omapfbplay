@@ -54,7 +54,7 @@ struct display {
     void (*close)(void);
 };
 
-extern const struct display *ofb_display_start[], *ofb_display_end[];
+extern const struct display *ofb_display_start[];
 
 #define DISPLAY(name) DRIVER(display, name)
 

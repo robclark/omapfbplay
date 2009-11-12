@@ -30,7 +30,9 @@ LDLIBS-$(XV)            += -lXv -lXext -lX11
 
 LDLIBS += $(LDLIBS-y)
 
-OBJ = $(addprefix $(O),omapfbplay.o time.o magic-head.o $(DRV-y) magic-tail.o)
+CORE = omapfbplay.o time.o
+DRV  = magic-head.o $(DRV-y) magic-tail.o
+OBJ  = $(addprefix $(O),$(CORE) $(DRV))
 
 $(O)omapfbplay: $(OBJ)
 

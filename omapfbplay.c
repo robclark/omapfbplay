@@ -123,13 +123,13 @@ timer_open(const char *dname)
 }
 
 static const struct display *
-display_open(const char *dname)
+display_open(const char *dname, struct display_props *dp)
 {
     const struct display *disp = NULL;
     const char *param = NULL;
 
     disp = find_driver(dname, &param, ofb_display_start);
-    if (disp && !disp->open(param))
+    if (disp && !disp->open(param, dp))
         return disp;
 
     fprintf(stderr, "Display driver failed or missing\n");
@@ -354,6 +354,23 @@ init_frames(void)
     frames[free_head].next = -1;
 }
 
+void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
+               unsigned dw, unsigned dh)
+{
+    *x = 0;
+    *y = 0;
+
+    if (*w * dh > dw * *h) {
+        *h = *h * dw / *w;
+        *w = dw;
+        *y = (dh - *h) / 2;
+    } else {
+        *w = *w * dh / *h;
+        *h = dh;
+        *x = (dw - *w) / 2;
+    }
+}
+
 static void
 sigint(int s)
 {
@@ -365,6 +382,7 @@ static int
 speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
 {
     const struct memman *memman;
+    struct display_props dp;
     struct frame_format ff;
     struct timespec t1, t2;
     uint8_t *y, *u, *v;
@@ -389,7 +407,7 @@ speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
 
     frame_format(w, h, 0, &ff);
 
-    display = display_open(drv);
+    display = display_open(drv, &dp);
     if (!display)
         return 1;
 
@@ -397,7 +415,7 @@ speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
     if (!memman)
         memman = find_driver(mem, NULL, ofb_memman_start);
 
-    if (memman->alloc_frames(&ff, bufsize, &frames, &num_frames))
+    if (memman->alloc_frames(&ff, 0, &frames, &num_frames))
         return 1;
 
     if (display->enable(&ff, disp_flags))
@@ -447,6 +465,7 @@ main(int argc, char **argv)
     AVPacket pk;
     struct frame_format frame_fmt;
     const struct memman *memman = NULL;
+    struct display_props dp;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
     unsigned flags = OFB_DOUBLE_BUF;
@@ -534,7 +553,7 @@ main(int argc, char **argv)
                  !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
                  &frame_fmt);
 
-    display = display_open(dispdrv);
+    display = display_open(dispdrv, &dp);
     if (!display)
         error(1);
 

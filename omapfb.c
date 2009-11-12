@@ -66,7 +66,7 @@ cleanup(void)
     close(vid_fd);   vid_fd    = -1;
 }
 
-static int omapfb_open(const char *name)
+static int omapfb_open(const char *name, struct display_props *dp)
 {
     gfx_fd = open("/dev/fb0", O_RDWR);
     if (gfx_fd == -1) {
@@ -86,6 +86,9 @@ static int omapfb_open(const char *name)
     xioctl(vid_fd, FBIOGET_VSCREENINFO, &vid_sinfo);
     xioctl(vid_fd, OMAPFB_QUERY_PLANE,  &vid_pinfo);
     xioctl(vid_fd, OMAPFB_QUERY_MEM,    &vid_minfo);
+
+    dp->width  = gfx_sinfo.xres;
+    dp->height = gfx_sinfo.yres;
 
     return 0;
 
@@ -151,10 +154,12 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
     vid_pinfo.enabled = 1;
 
     if (flags & OFB_FULLSCREEN) {
-        vid_pinfo.pos_x = 0;
-        vid_pinfo.pos_y = 0;
-        vid_pinfo.out_width  = gfx_sinfo.xres;
-        vid_pinfo.out_height = gfx_sinfo.yres;
+        unsigned x, y, w = vid_sinfo.xres, h = vid_sinfo.yres;
+        ofb_scale(&x, &y, &w, &h, gfx_sinfo.xres, gfx_sinfo.yres);
+        vid_pinfo.pos_x      = x;
+        vid_pinfo.pos_y      = y;
+        vid_pinfo.out_width  = w;
+        vid_pinfo.out_height = h;
     } else {
         vid_pinfo.pos_x = gfx_sinfo.xres / 2 - vid_sinfo.xres / 2;
         vid_pinfo.pos_y = gfx_sinfo.yres / 2 - vid_sinfo.yres / 2;
@@ -164,12 +169,13 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
 
     xioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
 
-    if (vid_pinfo.pos_x <= gfx_pinfo.pos_x  &&
-        vid_pinfo.pos_y >= gfx_pinfo.pos_y  &&
-        vid_pinfo.pos_x + vid_pinfo.out_width  >=
-            gfx_pinfo.pos_x + gfx_pinfo.out_width &&
-        vid_pinfo.pos_y + vid_pinfo.out_height >=
-            gfx_pinfo.pos_y + gfx_pinfo.out_height) {
+    if (flags & OFB_FULLSCREEN ||
+        (vid_pinfo.pos_x <= gfx_pinfo.pos_x  &&
+         vid_pinfo.pos_y >= gfx_pinfo.pos_y  &&
+         vid_pinfo.pos_x + vid_pinfo.out_width  >=
+             gfx_pinfo.pos_x + gfx_pinfo.out_width &&
+         vid_pinfo.pos_y + vid_pinfo.out_height >=
+             gfx_pinfo.pos_y + gfx_pinfo.out_height)) {
         struct omapfb_plane_info pi = gfx_pinfo;
         pi.enabled = 0;
         xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pi);

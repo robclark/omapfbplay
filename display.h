@@ -51,7 +51,7 @@ struct display_props {
 
 struct display {
     const char *name;
-    int  (*open)(const char *name);
+    int  (*open)(const char *name, struct display_props *dp);
     int  (*enable)(struct frame_format *fmt, unsigned flags);
     void (*prepare)(struct frame *f);
     void (*show)(struct frame *f);
@@ -65,6 +65,9 @@ extern const struct display *ofb_display_start[];
 
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
+
+void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
+               unsigned dw, unsigned dh);
 
 void yuv420_to_yuv422(uint8_t *yuv, uint8_t *y, uint8_t *u, uint8_t *v,
                       int w, int h, int yw, int cw, int dw);

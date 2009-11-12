@@ -60,8 +60,6 @@ xv_alloc_frames(const struct frame_format *ff, unsigned bufsize,
     unsigned frame_size;
     int i;
 
-    ffmt = *ff;
-
     y_offset = ff->width * ff->disp_y + ff->disp_x;
     uv_offset = ff->width * ff->disp_y / 4 + ff->disp_x / 2;
     frame_size = ff->width * ff->height * 3 / 2;
@@ -166,11 +164,12 @@ set_fullscreen(void)
     }
 }
 
-static int xv_open(const char *name)
+static int xv_open(const char *name, struct display_props *dp)
 {
     unsigned ver, rev, rb, evb, erb;
     unsigned na;
     XvAdaptorInfo *xai;
+    XWindowAttributes attr;
     int i;
 
     dpy = XOpenDisplay(name);
@@ -225,6 +224,10 @@ static int xv_open(const char *name)
 
     fprintf(stderr, "Xv: using port %li\n", xv_port);
 
+    XGetWindowAttributes(dpy, RootWindow(dpy, DefaultScreen(dpy)), &attr);
+    dp->width  = attr.width;
+    dp->height = attr.height;
+
     return 0;
 }
 
@@ -234,6 +237,9 @@ static int xv_enable(struct frame_format *ff, unsigned flags)
 			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,
 			InputOutput, CopyFromParent, 0, NULL);
     XSelectInput(dpy, win, StructureNotifyMask);
+    XSetWindowBackground(dpy, win, 0);
+
+    ffmt = *ff;
 
     out_x = 0;
     out_y = 0;
@@ -261,8 +267,10 @@ static void xv_prepare(struct frame *f)
     if (cn.type) {
         XWindowAttributes xwa;
         XGetWindowAttributes(dpy, win, &xwa);
-        out_w = xwa.width;
-        out_h = xwa.height;
+        out_w = ffmt.disp_w;
+        out_h = ffmt.disp_h;
+        ofb_scale(&out_x, &out_y, &out_w, &out_h, xwa.width, xwa.height);
+        XClearWindow(dpy, win);
     }
 }
 

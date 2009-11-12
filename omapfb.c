@@ -119,6 +119,7 @@ static int omapfb_open(const char *name, struct frame_format *ff,
                        unsigned flags, unsigned bufsize,
                        struct frame **frames, unsigned *nframes)
 {
+    unsigned frame_size;
     unsigned mem_size;
     uint8_t *fbmem;
     int i;
@@ -148,13 +149,14 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     vid_sinfo.yoffset = 0;
     vid_sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
+    frame_size = vid_sinfo.xres * vid_sinfo.yres * 2;
     mem_size = vid_minfo.size;
 
     if (!mem_size) {
         struct omapfb_mem_info mi = vid_minfo;
-        mi.size = vid_sinfo.xres * vid_sinfo.yres * 4;
+        mi.size = frame_size * 2;
         if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
-            mi.size /= 2;
+            mi.size = frame_size;
             if (ioctl(vid_fd, OMAPFB_SETUP_MEM, &mi)) {
                 perror("Unable to allocate FB memory");
                 return -1;
@@ -176,13 +178,12 @@ static int omapfb_open(const char *name, struct frame_format *ff,
     fb_pages[0].y = 0;
     fb_pages[0].buf = fbmem;
 
-    if (flags & OFB_DOUBLE_BUF &&
-        mem_size >= vid_sinfo.xres * vid_sinfo.yres * 4) {
+    if (flags & OFB_DOUBLE_BUF && mem_size >= frame_size * 2) {
         vid_sinfo.xres_virtual = vid_sinfo.xres;
         vid_sinfo.yres_virtual = vid_sinfo.yres * 2;
         fb_pages[1].x = 0;
         fb_pages[1].y = vid_sinfo.yres;
-        fb_pages[1].buf = fbmem + vid_sinfo.xres * vid_sinfo.yres * 2;
+        fb_pages[1].buf = fbmem + frame_size;
         fb_page_flip = 1;
     }
 

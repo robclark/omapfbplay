@@ -22,12 +22,17 @@ LDFLAGS += $(FFMPEG:%=$(addprefix -L$(FFMPEG)/,$(FFMPEG_LIBS)))
 LDLIBS = -lavformat -lavcodec -lavutil -lm -lpthread -lrt $(EXTRA_LIBS)
 
 DRV-y                    = sysclk.o sysmem.o
+DRV-$(CMEM)             += cmem.o
 DRV-$(NETSYNC)          += netsync.o
 DRV-$(OMAPFB)           += omapfb.o yuv.o
 DRV-$(XV)               += xv.o
 
+CFLAGS-$(CMEM)          += $(CMEM_CFLAGS)
+
+LDLIBS-$(CMEM)          += $(CMEM_LIBS)
 LDLIBS-$(XV)            += -lXv -lXext -lX11
 
+CFLAGS += $(CFLAGS-y)
 LDLIBS += $(LDLIBS-y)
 
 CORE = omapfbplay.o time.o

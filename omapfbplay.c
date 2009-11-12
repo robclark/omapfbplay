@@ -362,8 +362,9 @@ sigint(int s)
 }
 
 static int
-speed_test(const char *drv, char *size, unsigned disp_flags)
+speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
 {
+    const struct memman *memman;
     struct frame_format ff;
     struct timespec t1, t2;
     uint8_t *y, *u, *v;
@@ -390,6 +391,16 @@ speed_test(const char *drv, char *size, unsigned disp_flags)
 
     display = display_open(drv);
     if (!display)
+        return 1;
+
+    memman = display->memman;
+    if (!memman)
+        memman = find_driver(mem, NULL, ofb_memman_start);
+
+    if (memman->alloc_frames(&ff, bufsize, &frames, &num_frames))
+        return 1;
+
+    if (display->enable(&ff, disp_flags))
         return 1;
 
     bufsize = ff.disp_w * ff.disp_h * 3 / 2;
@@ -442,13 +453,14 @@ main(int argc, char **argv)
     char *test_param = NULL;
     char *dispdrv = NULL;
     char *timer_drv = NULL;
+    char *memman_drv = NULL;
     int opt;
     int err;
     int ret = 0;
 
 #define error(n) do { ret = n; goto out; } while (0)
 
-    while ((opt = getopt(argc, argv, "b:d:fst:T:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fM:st:T:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -458,6 +470,9 @@ main(int argc, char **argv)
             break;
         case 'f':
             flags |= OFB_FULLSCREEN;
+            break;
+        case 'M':
+            memman_drv = optarg;
             break;
         case 's':
             flags &= ~OFB_DOUBLE_BUF;
@@ -475,7 +490,7 @@ main(int argc, char **argv)
     argv += optind;
 
     if (test_param)
-        return speed_test(dispdrv, test_param, flags);
+        return speed_test(dispdrv, memman_drv, test_param, flags);
 
     if (argc < 1)
         return 1;
@@ -525,7 +540,7 @@ main(int argc, char **argv)
 
     memman = display->memman;
     if (!memman)
-        memman = ofb_memman_start[0];
+        memman = find_driver(memman_drv, NULL, ofb_memman_start);
     if (!memman)
         error(1);
 

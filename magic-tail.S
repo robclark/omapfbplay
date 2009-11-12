@@ -24,9 +24,7 @@
 
         .macro  end_sec name
         .section .ofb_\name, "a"
-        .global  ofb_\name\()_end
-        .type    ofb_\name\()_end, STT_OBJECT
-        .set     ofb_\name\()_end, .
+        .int            0, 0
         .endm
 
         end_sec         display

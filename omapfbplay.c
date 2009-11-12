@@ -78,9 +78,8 @@ find_stream(AVFormatContext *afc)
 }
 
 static const void *
-find_driver(const char *name, const char **param, void *start, void *end)
+find_driver(const char *name, const char **param, void *start)
 {
-    const char ***drvend = end;
     const char ***drv;
     int nlen = 0;
 
@@ -93,7 +92,7 @@ find_driver(const char *name, const char **param, void *start, void *end)
         nlen = strlen(name);
     }
 
-    for (drv = start; drv < drvend; drv++)
+    for (drv = start; *drv; drv++)
         if (!strncmp(**drv, name, nlen) && !(**drv)[nlen])
             return *drv;
 
@@ -107,8 +106,8 @@ timer_open(const char *dname)
     const char *param = NULL;
 
     if (dname)
-        tmr = find_driver(dname, &param, ofb_timer_start, ofb_timer_end);
-    else if (ofb_timer_start < ofb_timer_end)
+        tmr = find_driver(dname, &param, ofb_timer_start);
+    else
         tmr = ofb_timer_start[0];
 
     if (tmr && !tmr->open(param))
@@ -127,8 +126,8 @@ display_open(const char *dname, struct frame_format *fmt, unsigned flags,
     const char *param = NULL;
 
     if (dname)
-        disp = find_driver(dname, &param, ofb_display_start, ofb_display_end);
-    else if (ofb_display_start < ofb_display_end)
+        disp = find_driver(dname, &param, ofb_display_start);
+    else
         disp = ofb_display_start[0];
 
     if (disp && !disp->open(param, fmt, flags, max_mem, frames, nframes))

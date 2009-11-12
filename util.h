@@ -29,4 +29,11 @@
 #define MIN(a, b) ((a) < (b)? (a): (b))
 #define MAX(a, b) ((a) > (b)? (a): (b))
 
+#define TN(type, name) ofb_##type##_##name
+#define DRIVER(type, name)                                              \
+    static const struct type TN(type, name);                            \
+    static const struct type *const TN(type, name##_p)                  \
+        __attribute__((section(".ofb_"#type), used)) = &TN(type, name); \
+    static const struct type TN(type, name)
+
 #endif /* OFB_UTIL_H */

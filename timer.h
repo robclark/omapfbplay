@@ -27,6 +27,8 @@
 
 #include <time.h>
 
+#include "util.h"
+
 struct timer {
     const char *name;
     int (*open)(const char *);
@@ -38,11 +40,7 @@ struct timer {
 
 extern const struct timer *ofb_timer_start[], *ofb_timer_end[];
 
-#define TIMER(name)                                                     \
-    static const struct timer ofb_timer_##name;                         \
-    static const struct timer *const ofb_timer_##name_p                 \
-    __attribute__((section(".ofb_timer"), used)) = &ofb_timer_##name;   \
-    static const struct timer ofb_timer_##name
+#define TIMER(name) DRIVER(timer, name)
 
 unsigned ts_diff_ms(struct timespec *tv1, struct timespec *tv2);
 unsigned ts_diff_ns(const struct timespec *ts1, const struct timespec *ts2);

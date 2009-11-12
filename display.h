@@ -27,6 +27,8 @@
 
 #include <stdint.h>
 
+#include "util.h"
+
 struct frame_format {
     unsigned width, height;
     unsigned disp_x, disp_y;
@@ -54,11 +56,7 @@ struct display {
 
 extern const struct display *ofb_display_start[], *ofb_display_end[];
 
-#define DISPLAY(name)                                                   \
-    static const struct display ofb_display_##name;                     \
-    static const struct display *const ofb_display_##name_p             \
-    __attribute__((section(".ofb_display"), used)) = &ofb_display_##name; \
-    static const struct display ofb_display_##name
+#define DISPLAY(name) DRIVER(display, name)
 
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2

@@ -421,6 +421,8 @@ speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
     if (display->enable(&ff, disp_flags))
         return 1;
 
+    init_frames();
+
     bufsize = ff.disp_w * ff.disp_h * 3 / 2;
 
     y = frames->data[0];
@@ -450,6 +452,7 @@ speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
     fprintf(stderr, "%d ms, %d fps, read %lld B/s, write %lld B/s\n",
             j, i*1000 / j, 1000LL*i*bufsize / j, 2000LL*i*w*h / j);
 
+    memman->free_frames(frames, num_frames);
     display->close();
 
     return 0;

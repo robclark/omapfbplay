@@ -53,6 +53,7 @@ struct display_props {
 
 struct display {
     const char *name;
+    unsigned flags;
     int  (*open)(const char *name, struct display_props *dp);
     int  (*enable)(struct frame_format *fmt, unsigned flags);
     void (*prepare)(struct frame *f);

@@ -282,7 +282,7 @@ static void xv_show(struct frame *f)
                   ffmt.disp_x, ffmt.disp_y, ffmt.disp_w, ffmt.disp_h,
                   out_x, out_y, out_w, out_h, False);
 
-    XFlush(dpy);
+    XSync(dpy, False);
 }
 
 static void xv_close(void)

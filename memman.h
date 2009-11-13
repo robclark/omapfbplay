@@ -29,7 +29,7 @@
 
 struct memman {
     const char *name;
-    int  (*alloc_frames)(const struct frame_format *ff, unsigned max_size,
+    int  (*alloc_frames)(struct frame_format *ff, unsigned max_size,
                          struct frame **fr, unsigned *nf);
     void (*free_frames)(struct frame *frames, unsigned nf);
 };

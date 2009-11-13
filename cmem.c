@@ -35,7 +35,7 @@ static CMEM_AllocParams cma;
 static uint8_t *frame_buf;
 
 static int
-cmem_alloc_frames(const struct frame_format *ff, unsigned bufsize,
+cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
                   struct frame **fr, unsigned *nf)
 {
     int buf_w = ff->width, buf_h = ff->height;
@@ -78,6 +78,9 @@ cmem_alloc_frames(const struct frame_format *ff, unsigned bufsize,
         frames[i].linesize[1] = ff->width;
         frames[i].linesize[2] = ff->width;
     }
+
+    ff->y_stride  = ff->width;
+    ff->uv_stride = ff->width;
 
     *fr = frames;
     *nf = num_frames;

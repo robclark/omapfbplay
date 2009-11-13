@@ -33,6 +33,7 @@ struct frame_format {
     unsigned width, height;
     unsigned disp_x, disp_y;
     unsigned disp_w, disp_h;
+    unsigned y_stride, uv_stride;
 };
 
 struct frame {

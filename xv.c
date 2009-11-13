@@ -52,7 +52,7 @@ static struct {
 static unsigned out_x, out_y, out_w, out_h;
 
 static int
-xv_alloc_frames(const struct frame_format *ff, unsigned bufsize,
+xv_alloc_frames(struct frame_format *ff, unsigned bufsize,
                 struct frame **fr, unsigned *nf)
 {
     unsigned y_offset;

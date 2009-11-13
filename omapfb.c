@@ -230,6 +230,7 @@ static void omapfb_close(void)
 
 DISPLAY(omapfb) = {
     .name  = "omapfb",
+    .flags = OFB_FULLSCREEN | OFB_DOUBLE_BUF,
     .open  = omapfb_open,
     .enable  = omapfb_enable,
     .prepare = omapfb_prepare,

@@ -313,6 +313,7 @@ const struct memman xv_mem = {
 
 DISPLAY(xv) = {
     .name  = "xv",
+    .flags = OFB_FULLSCREEN,
     .open  = xv_open,
     .enable  = xv_enable,
     .prepare = xv_prepare,

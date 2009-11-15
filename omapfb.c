@@ -47,6 +47,7 @@ static struct {
     unsigned x;
     unsigned y;
     uint8_t *buf;
+    uint8_t *phys;
 } fb_pages[2];
 
 static int gfx_fd = -1;
@@ -100,6 +101,7 @@ err:
 static int
 omapfb_enable(struct frame_format *ff, unsigned flags)
 {
+    struct fb_fix_screeninfo fsi;
     unsigned frame_size;
     unsigned mem_size;
     uint8_t *fbmem;
@@ -127,6 +129,8 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
         mem_size = mi.size;
     }        
 
+    xioctl(vid_fd, FBIOGET_FSCREENINFO, &fsi);
+
     fbmem = mmap(NULL, mem_size, PROT_READ|PROT_WRITE, MAP_SHARED, vid_fd, 0);
     if (fbmem == MAP_FAILED) {
         perror("mmap");
@@ -139,6 +143,7 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
     fb_pages[0].x = 0;
     fb_pages[0].y = 0;
     fb_pages[0].buf = fbmem;
+    fb_pages[0].phys = (uint8_t *)fsi.smem_start;
 
     if (flags & OFB_DOUBLE_BUF && mem_size >= frame_size * 2) {
         vid_sinfo.xres_virtual = vid_sinfo.xres;
@@ -146,6 +151,7 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
         fb_pages[1].x = 0;
         fb_pages[1].y = vid_sinfo.yres;
         fb_pages[1].buf = fbmem + frame_size;
+        fb_pages[1].phys = fb_pages[0].phys + frame_size;
         fb_page_flip = 1;
     }
 
@@ -230,7 +236,7 @@ static void omapfb_close(void)
 
 DISPLAY(omapfb) = {
     .name  = "omapfb",
-    .flags = OFB_FULLSCREEN | OFB_DOUBLE_BUF,
+    .flags = OFB_FULLSCREEN | OFB_DOUBLE_BUF | OFB_PHYS_MEM,
     .open  = omapfb_open,
     .enable  = omapfb_enable,
     .prepare = omapfb_prepare,

@@ -108,6 +108,7 @@ cmem_free_frames(struct frame *frames, unsigned nf)
 
 DRIVER(memman, cmem) = {
     .name         = "cmem",
+    .flags        = OFB_PHYS_MEM,
     .alloc_frames = cmem_alloc_frames,
     .free_frames  = cmem_free_frames,
 };

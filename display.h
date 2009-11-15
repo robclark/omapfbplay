@@ -68,6 +68,7 @@ extern const struct display *ofb_display_start[];
 
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
+#define OFB_PHYS_MEM   4
 
 void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
                unsigned dw, unsigned dh);

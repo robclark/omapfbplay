@@ -316,7 +316,8 @@ post_frame(AVFrame *pic)
 
     f->refs++;
 
-    sem_post(&disp_sem);
+    if (disp_count > 1)
+        sem_post(&disp_sem);
 }
 
 static void
@@ -631,6 +632,7 @@ main(int argc, char **argv)
     }
 
     if (!stop) {
+        sem_post(&disp_sem);
         while (disp_tail != -1)
             usleep(100000);
     }

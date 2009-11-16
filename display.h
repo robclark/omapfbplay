@@ -55,7 +55,8 @@ struct pixconv {
     const char *name;
     unsigned flags;
     int  (*open)(const struct frame_format *fmt);
-    void (*convert)(uint8_t *dst[3], uint8_t *src[3]);
+    void (*convert)(uint8_t *vdst[3], uint8_t *vsrc[3],
+                    uint8_t *pdst[3], uint8_t *psrc[3]);
     void (*finish)(void);
     void (*close)(void);
 };

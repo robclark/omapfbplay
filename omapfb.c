@@ -206,10 +206,8 @@ err:
 static inline void
 convert_frame(struct frame *f)
 {
-    if (pixconv->flags & OFB_PHYS_MEM)
-        pixconv->convert(&fb_pages[fb_page].phys, f->phys);
-    else
-        pixconv->convert(&fb_pages[fb_page].buf, f->data);
+    pixconv->convert(&fb_pages[fb_page].buf,  f->data,
+                     &fb_pages[fb_page].phys, f->phys);
 }
 
 static void omapfb_prepare(struct frame *f)

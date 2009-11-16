@@ -29,11 +29,14 @@ DRV-$(CMEM)             += cmem.o
 DRV-$(NETSYNC)          += netsync.o
 DRV-$(OMAPFB)           += omapfb.o
 DRV-$(arm)              += neon_pixconv.o
+DRV-$(SDMA)             += sdma.o
 DRV-$(XV)               += xv.o
 
 CFLAGS-$(CMEM)          += $(CMEM_CFLAGS)
+CFLAGS-$(SDMA)          += $(SDMA_CFLAGS)
 
 LDLIBS-$(CMEM)          += $(CMEM_LIBS)
+LDLIBS-$(SDMA)          += $(SDMA_LIBS)
 LDLIBS-$(XV)            += -lXv -lXext -lX11
 
 CFLAGS += $(CFLAGS-y)

@@ -32,3 +32,4 @@
         start_sec       display
         start_sec       timer
         start_sec       memman
+        start_sec       pixconv

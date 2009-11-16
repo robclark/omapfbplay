@@ -231,7 +231,8 @@ static int xv_open(const char *name, struct display_props *dp)
     return 0;
 }
 
-static int xv_enable(struct frame_format *ff, unsigned flags)
+static int xv_enable(struct frame_format *ff, unsigned flags,
+                     const struct pixconv *pc)
 {
     win = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)),
 			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,
@@ -313,7 +314,7 @@ const struct memman xv_mem = {
 
 DISPLAY(xv) = {
     .name  = "xv",
-    .flags = OFB_FULLSCREEN,
+    .flags = OFB_FULLSCREEN | OFB_NOCONV,
     .open  = xv_open,
     .enable  = xv_enable,
     .prepare = xv_prepare,

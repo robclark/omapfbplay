@@ -379,8 +379,10 @@ sigint(int s)
 }
 
 static int
-speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
+speed_test(const char *drv, const char *mem, const char *conv,
+           char *size, unsigned disp_flags)
 {
+    const struct pixconv *pixconv;
     const struct memman *memman;
     struct display_props dp;
     struct frame_format ff;
@@ -418,7 +420,18 @@ speed_test(const char *drv, const char *mem, char *size, unsigned disp_flags)
     if (memman->alloc_frames(&ff, 0, &frames, &num_frames))
         return 1;
 
-    if (display->enable(&ff, disp_flags))
+    if (!(display->flags & OFB_NOCONV)) {
+        pixconv = find_driver(conv, NULL, ofb_pixconv_start);
+        if (!pixconv)
+            return 1;
+        if ((pixconv->flags & OFB_PHYS_MEM) &&
+            !(memman->flags & display->flags & OFB_PHYS_MEM)) {
+            fprintf(stderr, "Incompatible display/memman/pixconv\n");
+            return 1;
+        }
+    }
+
+    if (display->enable(&ff, disp_flags, pixconv))
         return 1;
 
     init_frames();
@@ -467,6 +480,7 @@ main(int argc, char **argv)
     AVStream *st;
     AVPacket pk;
     struct frame_format frame_fmt;
+    const struct pixconv *pixconv = NULL;
     const struct memman *memman = NULL;
     struct display_props dp;
     int bufsize = BUFFER_SIZE;
@@ -476,13 +490,14 @@ main(int argc, char **argv)
     char *dispdrv = NULL;
     char *timer_drv = NULL;
     char *memman_drv = NULL;
+    char *pixconv_drv = NULL;
     int opt;
     int err;
     int ret = 0;
 
 #define error(n) do { ret = n; goto out; } while (0)
 
-    while ((opt = getopt(argc, argv, "b:d:fM:st:T:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fM:P:st:T:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -495,6 +510,9 @@ main(int argc, char **argv)
             break;
         case 'M':
             memman_drv = optarg;
+            break;
+        case 'P':
+            pixconv_drv = optarg;
             break;
         case 's':
             flags &= ~OFB_DOUBLE_BUF;
@@ -512,7 +530,7 @@ main(int argc, char **argv)
     argv += optind;
 
     if (test_param)
-        return speed_test(dispdrv, memman_drv, test_param, flags);
+        return speed_test(dispdrv, memman_drv, pixconv_drv, test_param, flags);
 
     if (argc < 1)
         return 1;
@@ -566,6 +584,17 @@ main(int argc, char **argv)
     if (!memman)
         error(1);
 
+    if (!(display->flags & OFB_NOCONV)) {
+        pixconv = find_driver(pixconv_drv, NULL, ofb_pixconv_start);
+        if (!pixconv)
+            error(1);
+        if ((pixconv->flags & OFB_PHYS_MEM) &&
+            !(memman->flags & display->flags & OFB_PHYS_MEM)) {
+            fprintf(stderr, "Incompatible display/memman/pixconv\n");
+            error(1);
+        }
+    }
+
     timer = timer_open(timer_drv);
     if (!timer)
         error(1);
@@ -573,7 +602,7 @@ main(int argc, char **argv)
     if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
         error(1);
 
-    if (display->enable(&frame_fmt, flags))
+    if (display->enable(&frame_fmt, flags, pixconv))
         error(1);
 
     init_frames();

@@ -54,6 +54,7 @@ static int gfx_fd = -1;
 static int vid_fd = -1;
 static int fb_page_flip;
 static int fb_page;
+static const struct pixconv *pixconv;
 
 #define xioctl(fd, req, param) do {             \
         if (ioctl(fd, req, param) == -1)        \
@@ -99,7 +100,8 @@ err:
 }
 
 static int
-omapfb_enable(struct frame_format *ff, unsigned flags)
+omapfb_enable(struct frame_format *ff, unsigned flags,
+              const struct pixconv *pc)
 {
     struct fb_fix_screeninfo fsi;
     unsigned frame_size;
@@ -187,6 +189,14 @@ omapfb_enable(struct frame_format *ff, unsigned flags)
         xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pi);
     }
 
+    ff->disp_w = vid_sinfo.xres;
+    ff->disp_h = vid_sinfo.yres;
+
+    if (pc->open(ff))
+        return -1;
+
+    pixconv = pc;
+
     return 0;
 
 err:
@@ -196,11 +206,10 @@ err:
 static inline void
 convert_frame(struct frame *f)
 {
-    yuv420_to_yuv422(fb_pages[fb_page].buf,
-                     f->data[0], f->data[1], f->data[2],
-                     vid_sinfo.xres, vid_sinfo.yres,
-                     f->linesize[0], f->linesize[1],
-                     2*vid_sinfo.xres_virtual);
+    if (pixconv->flags & OFB_PHYS_MEM)
+        pixconv->convert(&fb_pages[fb_page].phys, f->phys);
+    else
+        pixconv->convert(&fb_pages[fb_page].buf, f->data);
 }
 
 static void omapfb_prepare(struct frame *f)
@@ -213,6 +222,8 @@ static void omapfb_show(struct frame *f)
 {
     if (!fb_page_flip)
         convert_frame(f);
+
+    pixconv->finish();
 
     if (fb_page_flip) {
         vid_sinfo.xoffset = fb_pages[fb_page].x;
@@ -231,6 +242,9 @@ static void omapfb_close(void)
     ioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
     ioctl(vid_fd, OMAPFB_SETUP_MEM,   &vid_minfo);
 
+    if (pixconv)
+        pixconv->close();
+    pixconv = NULL;
     cleanup();
 }
 

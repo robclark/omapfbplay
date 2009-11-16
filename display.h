@@ -51,11 +51,21 @@ struct display_props {
     unsigned width, height;
 };
 
+struct pixconv {
+    const char *name;
+    unsigned flags;
+    int  (*open)(const struct frame_format *fmt);
+    void (*convert)(uint8_t *dst[3], uint8_t *src[3]);
+    void (*finish)(void);
+    void (*close)(void);
+};
+
 struct display {
     const char *name;
     unsigned flags;
     int  (*open)(const char *name, struct display_props *dp);
-    int  (*enable)(struct frame_format *fmt, unsigned flags);
+    int  (*enable)(struct frame_format *fmt, unsigned flags,
+                   const struct pixconv *pc);
     void (*prepare)(struct frame *f);
     void (*show)(struct frame *f);
     void (*close)(void);
@@ -63,12 +73,14 @@ struct display {
 };
 
 extern const struct display *ofb_display_start[];
+extern const struct pixconv *ofb_pixconv_start[];
 
 #define DISPLAY(name) DRIVER(display, name)
 
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
 #define OFB_PHYS_MEM   4
+#define OFB_NOCONV     8
 
 void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
                unsigned dw, unsigned dh);

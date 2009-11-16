@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <unistd.h>
-#include <asm/unistd.h>
 #include <sdma.h>
 
 #include "display.h"
@@ -54,7 +52,6 @@
 
 static SDMA_ChannelDescriptor sdmac[5];
 static unsigned dest_stride;
-static unsigned frame_size;
 
 static int sdma_open(const struct frame_format *ff)
 {
@@ -96,7 +93,6 @@ static int sdma_open(const struct frame_format *ff)
     sdmac[4].addr[DMA4_CICR]      = 1<<5;
 
     dest_stride = dw;
-    frame_size = yw * h * 3 / 2;
 
     return 0;
 }
@@ -108,8 +104,6 @@ static void sdma_convert(uint8_t *vdst[3], uint8_t *vsrc[3],
     uint8_t *y   = psrc[0];
     uint8_t *u   = psrc[1];
     uint8_t *v   = psrc[2];
-
-    syscall(__ARM_NR_cacheflush, vsrc[0], vsrc[0] + frame_size, 0);
 
     sdmac[0].addr[DMA4_CSSA] = (unsigned)y;
     sdmac[0].addr[DMA4_CDSA] = (unsigned)yuv;

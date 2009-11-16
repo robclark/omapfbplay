@@ -54,8 +54,8 @@
 yuv420_to_yuv422:
         push            {r4-r11,lr}
         add             r4,  sp,  #36
-        ldm             r4, {r4-r8}
 .Ldo_conv:
+        ldm             r4, {r4-r8}
         push            {r4}
 1:
         mov             tu,   u
@@ -141,7 +141,6 @@ neon_convert:
         ldr             r0,  [r0]
         mov32           r4,  conv_params
         ldm             r1,  {r1-r3}
-        ldm             r4,  {r4-r8}
         b               .Ldo_conv
         .endfunc
 

@@ -155,6 +155,8 @@ static int pic_num;
 
 static int stop;
 
+static int noaspect;
+
 #define EDGE_WIDTH 16
 
 static int
@@ -361,7 +363,10 @@ void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
     *x = 0;
     *y = 0;
 
-    if (*w * dh > dw * *h) {
+    if (noaspect) {
+        *w = dw;
+        *h = dh;
+    } else if (*w * dh > dw * *h) {
         *h = *h * dw / *w;
         *w = dw;
         *y = (dh - *h) / 2;
@@ -498,7 +503,7 @@ main(int argc, char **argv)
 
 #define error(n) do { ret = n; goto out; } while (0)
 
-    while ((opt = getopt(argc, argv, "b:d:fM:P:st:T:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fFM:P:st:T:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -506,6 +511,8 @@ main(int argc, char **argv)
         case 'd':
             dispdrv = optarg;
             break;
+        case 'F':
+            noaspect = 1;
         case 'f':
             flags |= OFB_FULLSCREEN;
             break;

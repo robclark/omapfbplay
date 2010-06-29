@@ -397,6 +397,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
     unsigned w, h = 0;
     unsigned n = 1000;
     unsigned bufsize;
+    char *ss = size;
     int i, j;
 
     w = strtoul(size, &size, 0);
@@ -409,7 +410,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
     h &= ~15;
 
     if (!w || !h || !n) {
-        fprintf(stderr, "Invalid size/count '%s'\n", size);
+        fprintf(stderr, "Invalid size/count '%s'\n", ss);
         return 1;
     }
 

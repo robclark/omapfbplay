@@ -18,11 +18,11 @@ CPPFLAGS += $(FFMPEG:%=-I%)
 
 CFLAGS = -O3 -g -Wall -fomit-frame-pointer -fno-tree-vectorize $(CPUFLAGS)
 
-FFMPEG_LIBS = libavcodec libavformat libavutil libavcore
+FFMPEG_LIBS = libavformat libavcodec libavcore libavutil
 
 LDFLAGS = $(SYSROOT)
-LDFLAGS += $(FFMPEG:%=$(addprefix -L$(FFMPEG)/,$(FFMPEG_LIBS)))
-LDLIBS = -lavformat -lavcodec -lavcore -lavutil -lm -lpthread -lrt $(EXTRA_LIBS)
+LDFLAGS += $(foreach FF,$(FFMPEG),$(addprefix -L$(FF)/,$(FFMPEG_LIBS)))
+LDLIBS = $(FFMPEG_LIBS:lib%=-l%) -lm -lpthread -lrt $(EXTRA_LIBS)
 
 DRV-y                    = sysclk.o sysmem.o
 DRV-$(CMEM)             += cmem.o

@@ -190,12 +190,6 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
         xioctl(gfx_fd, OMAPFB_SETUP_PLANE, &pi);
     }
 
-    ff->disp_w = vid_sinfo.xres;
-    ff->disp_h = vid_sinfo.yres;
-
-    if (pc->open(ff))
-        return -1;
-
     pixconv = pc;
 
     return 0;
@@ -241,8 +235,6 @@ static void omapfb_close(void)
     ioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
     ioctl(vid_fd, OMAPFB_SETUP_MEM,   &vid_minfo);
 
-    if (pixconv)
-        pixconv->close();
     pixconv = NULL;
     cleanup();
 }

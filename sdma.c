@@ -53,7 +53,8 @@
 static SDMA_ChannelDescriptor sdmac[5];
 static unsigned dest_stride;
 
-static int sdma_open(const struct frame_format *ff)
+static int sdma_open(const struct frame_format *ff,
+                     const struct frame_format *df)
 {
     unsigned w = ff->disp_w;
     unsigned h = ff->disp_h;

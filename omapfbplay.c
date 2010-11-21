@@ -137,6 +137,24 @@ display_open(const char *dname, struct frame_format *dp)
     return NULL;
 }
 
+static const struct pixconv *
+pixconv_open(const char *name, const struct frame_format *ffmt,
+             const struct frame_format *dfmt)
+{
+    const struct pixconv **start = ofb_pixconv_start;
+    const struct pixconv *conv;
+
+    do {
+        conv = find_driver(name, NULL, start);
+        if (conv && !conv->open(ffmt, dfmt))
+            return conv;
+    } while (*start++);
+
+    fprintf(stderr, "No pixel converter found\n");
+
+    return NULL;
+}
+
 static const struct display *display;
 static const struct timer *timer;
 static struct frame *frames;
@@ -429,7 +447,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
         return 1;
 
     if (!(display->flags & OFB_NOCONV)) {
-        pixconv = find_driver(conv, NULL, ofb_pixconv_start);
+        pixconv = pixconv_open(conv, &ff, &dp);
         if (!pixconv)
             return 1;
         if ((pixconv->flags & OFB_PHYS_MEM) &&
@@ -475,6 +493,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     memman->free_frames(frames, num_frames);
     display->close();
+    pixconv->close();
 
     return 0;
 }
@@ -595,8 +614,11 @@ main(int argc, char **argv)
     if (!memman)
         error(1);
 
+    if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
+        error(1);
+
     if (!(display->flags & OFB_NOCONV)) {
-        pixconv = find_driver(pixconv_drv, NULL, ofb_pixconv_start);
+        pixconv = pixconv_open(pixconv_drv, &frame_fmt, &dp);
         if (!pixconv)
             error(1);
         if ((pixconv->flags & OFB_PHYS_MEM) &&
@@ -608,9 +630,6 @@ main(int argc, char **argv)
 
     timer = timer_open(timer_drv);
     if (!timer)
-        error(1);
-
-    if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
         error(1);
 
     if (display->enable(&frame_fmt, flags, pixconv))
@@ -659,6 +678,7 @@ out:
     if (timer)   timer->close();
     if (memman)  memman->free_frames(frames, num_frames);
     if (display) display->close();
+    if (pixconv) pixconv->close();
 
     return ret;
 }

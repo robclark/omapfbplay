@@ -91,6 +91,7 @@ static int omapfb_open(const char *name, struct frame_format *dp)
 
     dp->width  = gfx_sinfo.xres;
     dp->height = gfx_sinfo.yres;
+    dp->pixfmt = PIX_FMT_YUYV422;
 
     return 0;
 

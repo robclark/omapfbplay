@@ -26,6 +26,7 @@
 #define OFB_DISPLAY_H
 
 #include <stdint.h>
+#include <libavutil/pixfmt.h>
 
 #include "util.h"
 
@@ -34,6 +35,7 @@ struct frame_format {
     unsigned disp_x, disp_y;
     unsigned disp_w, disp_h;
     unsigned y_stride, uv_stride;
+    enum PixelFormat pixfmt;
 };
 
 struct frame {

@@ -416,6 +416,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     frame_format(w, h, 0, &ff);
 
+    dp.pixfmt = ff.pixfmt;
     display = display_open(drv, &dp);
     if (!display)
         return 1;
@@ -579,6 +580,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
+    frame_fmt.pixfmt = st->codec->pix_fmt;
     frame_format(st->codec->width, st->codec->height,
                  !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
                  &frame_fmt);

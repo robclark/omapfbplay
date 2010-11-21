@@ -227,6 +227,7 @@ static int xv_open(const char *name, struct frame_format *dp)
     XGetWindowAttributes(dpy, RootWindow(dpy, DefaultScreen(dpy)), &attr);
     dp->width  = attr.width;
     dp->height = attr.height;
+    dp->pixfmt = PIX_FMT_YUV420P;
 
     return 0;
 }

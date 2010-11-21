@@ -47,10 +47,6 @@ struct frame {
     int refs;
 };
 
-struct display_props {
-    unsigned width, height;
-};
-
 struct pixconv {
     const char *name;
     unsigned flags;
@@ -64,7 +60,7 @@ struct pixconv {
 struct display {
     const char *name;
     unsigned flags;
-    int  (*open)(const char *name, struct display_props *dp);
+    int  (*open)(const char *name, struct frame_format *df);
     int  (*enable)(struct frame_format *fmt, unsigned flags,
                    const struct pixconv *pc);
     void (*prepare)(struct frame *f);

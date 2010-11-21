@@ -123,7 +123,7 @@ timer_open(const char *dname)
 }
 
 static const struct display *
-display_open(const char *dname, struct display_props *dp)
+display_open(const char *dname, struct frame_format *dp)
 {
     const struct display *disp = NULL;
     const char *param = NULL;
@@ -390,7 +390,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 {
     const struct pixconv *pixconv;
     const struct memman *memman;
-    struct display_props dp;
+    struct frame_format dp;
     struct frame_format ff;
     struct timespec t1, t2;
     uint8_t *y, *u, *v;
@@ -489,7 +489,7 @@ main(int argc, char **argv)
     struct frame_format frame_fmt;
     const struct pixconv *pixconv = NULL;
     const struct memman *memman = NULL;
-    struct display_props dp;
+    struct frame_format dp;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
     unsigned flags = OFB_DOUBLE_BUF;

@@ -164,7 +164,7 @@ set_fullscreen(void)
     }
 }
 
-static int xv_open(const char *name, struct display_props *dp)
+static int xv_open(const char *name, struct frame_format *dp)
 {
     unsigned ver, rev, rb, evb, erb;
     unsigned na;

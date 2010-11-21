@@ -105,18 +105,24 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
               const struct pixconv *pc)
 {
     struct fb_fix_screeninfo fsi;
+    unsigned vxres, vyres;
     unsigned frame_size;
     unsigned mem_size;
     uint8_t *fbmem;
     int i;
 
-    vid_sinfo.xres = MIN(gfx_sinfo.xres, ff->disp_w) & ~15;
-    vid_sinfo.yres = MIN(gfx_sinfo.yres, ff->disp_h) & ~15;
+    vxres = ALIGN(ff->disp_w, 16);
+    vyres = ALIGN(ff->disp_h, 16);
+
+    vid_sinfo.xres = ff->disp_w;
+    vid_sinfo.yres = ff->disp_h;
+    vid_sinfo.xres_virtual = vxres;
+    vid_sinfo.yres_virtual = vyres;
     vid_sinfo.xoffset = 0;
     vid_sinfo.yoffset = 0;
     vid_sinfo.nonstd = OMAPFB_COLOR_YUY422;
 
-    frame_size = vid_sinfo.xres * vid_sinfo.yres * 2;
+    frame_size = vxres * vyres * 2;
     mem_size = vid_minfo.size;
 
     if (!mem_size) {
@@ -149,10 +155,9 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
     fb_pages[0].phys = (uint8_t *)fsi.smem_start;
 
     if (flags & OFB_DOUBLE_BUF && mem_size >= frame_size * 2) {
-        vid_sinfo.xres_virtual = vid_sinfo.xres;
-        vid_sinfo.yres_virtual = vid_sinfo.yres * 2;
+        vid_sinfo.yres_virtual = vyres * 2;
         fb_pages[1].x = 0;
-        fb_pages[1].y = vid_sinfo.yres;
+        fb_pages[1].y = vyres;
         fb_pages[1].buf = fbmem + frame_size;
         fb_pages[1].phys = fb_pages[0].phys + frame_size;
         fb_page_flip = 1;
@@ -162,7 +167,8 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
 
     vid_pinfo.enabled = 1;
 
-    if (flags & OFB_FULLSCREEN) {
+    if ((flags & OFB_FULLSCREEN) ||
+        vid_sinfo.xres > gfx_sinfo.xres || vid_sinfo.yres > gfx_sinfo.yres) {
         unsigned x, y, w = vid_sinfo.xres, h = vid_sinfo.yres;
         ofb_scale(&x, &y, &w, &h, gfx_sinfo.xres, gfx_sinfo.yres);
         vid_pinfo.pos_x      = x;

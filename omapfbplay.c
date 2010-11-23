@@ -434,7 +434,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     frame_format(w, h, 0, &ff);
 
-    dp.pixfmt = ff.pixfmt;
+    dp.pixfmt = ff.pixfmt = PIX_FMT_YUV420P;
     display = display_open(drv, &dp);
     if (!display)
         return 1;
@@ -604,6 +604,7 @@ main(int argc, char **argv)
                  !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
                  &frame_fmt);
 
+    dp.pixfmt = st->codec->pix_fmt;
     display = display_open(dispdrv, &dp);
     if (!display)
         error(1);

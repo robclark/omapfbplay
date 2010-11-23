@@ -125,6 +125,12 @@ yuv420_to_yuv422:
 
         .func   neon_open
 neon_open:
+        ldr             r2,  [r0, #32]
+        ldr             r3,  [r1, #32]
+        cmp             r2,  #0                         @ PIX_FMT_YUV420P
+        cmpeq           r3,  #1                         @ PIX_FMT_YUYV422
+        mvnne           r0,  #0
+        bxne            lr
         push            {r4-r8,lr}
         ldrd            r4,  r5,  [r0, #16]
         ldrd            r6,  r7,  [r0, #24]

@@ -407,7 +407,7 @@ static int
 speed_test(const char *drv, const char *mem, const char *conv,
            char *size, unsigned disp_flags)
 {
-    const struct pixconv *pixconv;
+    const struct pixconv *pixconv = NULL;
     const struct memman *memman;
     struct frame_format dp;
     struct frame_format ff;
@@ -494,7 +494,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     memman->free_frames(frames, num_frames);
     display->close();
-    pixconv->close();
+    if (pixconv) pixconv->close();
 
     return 0;
 }

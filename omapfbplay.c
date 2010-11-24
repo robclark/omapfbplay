@@ -176,7 +176,7 @@ static int stop;
 
 static int noaspect;
 
-#define EDGE_WIDTH 16
+#define EDGE_WIDTH 32
 
 static int
 ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
@@ -344,8 +344,8 @@ post_frame(AVFrame *pic)
 static void
 frame_format(int width, int height, int border, struct frame_format *ff)
 {
-    ff->width  = ALIGN(width,  16);
-    ff->height = ALIGN(height, 16);
+    ff->width  = ALIGN(width,  32);
+    ff->height = ALIGN(height, 32);
     ff->disp_x = 0;
     ff->disp_y = 0;
     ff->disp_w = width;

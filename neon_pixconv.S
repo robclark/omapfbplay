@@ -123,12 +123,54 @@ yuv420_to_yuv422:
         pop             {r3-r11,pc}
         .endfunc
 
+        .func   yuv420_to_nv12
+yuv420_to_nv12:
+        ldm             r4,  {r4-r8}
+        add             r4,  r4,  #31
+        bic             r4,  r4,  #31
+        sub             r6,  r6,  r4
+        sub             r7,  r7,  r4,  lsr #1
+        sub             r8,  r8,  r4
+        mov             r10, r5
+1:
+        mov             r9,  r4
+2:
+        pld             [r1, #256]
+        vld1.8          {q0-q1},  [r1,:128]!
+        vst1.8          {q0-q1},  [r0,:128]!
+        subs            r9,  r9,  #32
+        bgt             2b
+        add             r1,  r1,  r6
+        add             r0,  r0,  r8
+        subs            r10, r10, #1
+        bgt             1b
+1:
+        lsr             r9,  r4,  #1
+2:
+        pld             [r2, #256]
+        pld             [r3, #256]
+        vld1.8          {q0},     [r2,:128]!
+        vld1.8          {q1},     [r3,:128]!
+        vst2.8          {q0-q1},  [r0,:256]!
+        subs            r9,  r9,  #16
+        bgt             2b
+        add             r2,  r2,  r7
+        add             r3,  r3,  r7
+        add             r0,  r0,  r8
+        subs            r5,  r5,  #2
+        bgt             1b
+
+        pop             {r4-r11,pc}
+        .endfunc
+
         .func   neon_open
 neon_open:
         ldr             r2,  [r0, #32]
         ldr             r3,  [r1, #32]
         cmp             r2,  #0                         @ PIX_FMT_YUV420P
-        cmpeq           r3,  #1                         @ PIX_FMT_YUYV422
+        bxne            lr
+        cmp             r3,  #1                         @ PIX_FMT_YUYV422
+        cmpne           r3,  #25                        @ PIX_FMT_NV12
         mvnne           r0,  #0
         bxne            lr
         push            {r4-r8,lr}
@@ -137,6 +179,10 @@ neon_open:
         ldr             r8,  [r1, #24]
         mov32           r0,  conv_params
         stm             r0,  {r4-r8}
+        cmp             r3,  #1
+        adreq           r3,  .Ldo_conv
+        adrne           r3,  yuv420_to_nv12
+        str             r3,  [r0, #20]
         mov             r0,  #0
         pop             {r4-r8,pc}
         .endfunc
@@ -147,7 +193,7 @@ neon_convert:
         ldr             r0,  [r0]
         mov32           r4,  conv_params
         ldm             r1,  {r1-r3}
-        b               .Ldo_conv
+        ldr             pc,  [r4, #20]
         .endfunc
 
         .func   neon_nop
@@ -157,7 +203,7 @@ neon_nop:
 
         .section .bss
 conv_params:
-        .skip           5*4
+        .skip           6*4
         .size           conv_params, . - conv_params
 
         .section        .rodata

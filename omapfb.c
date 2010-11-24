@@ -105,7 +105,7 @@ err:
 
 static int
 omapfb_enable(struct frame_format *ff, unsigned flags,
-              const struct pixconv *pc)
+              const struct pixconv *pc, struct frame_format *df)
 {
     struct fb_fix_screeninfo fsi;
     unsigned vxres, vyres;

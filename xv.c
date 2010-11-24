@@ -234,7 +234,7 @@ static int xv_open(const char *name, struct frame_format *dp,
 }
 
 static int xv_enable(struct frame_format *ff, unsigned flags,
-                     const struct pixconv *pc)
+                     const struct pixconv *pc, struct frame_format *df)
 {
     win = XCreateWindow(dpy, RootWindow(dpy, DefaultScreen(dpy)),
 			0, 0, ff->disp_w, ff->disp_h, 0, CopyFromParent,

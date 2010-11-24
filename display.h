@@ -66,7 +66,7 @@ struct display {
     int  (*open)(const char *name, struct frame_format *df,
                  struct frame_format *ff);
     int  (*enable)(struct frame_format *fmt, unsigned flags,
-                   const struct pixconv *pc);
+                   const struct pixconv *pc, struct frame_format *df);
     void (*prepare)(struct frame *f);
     void (*show)(struct frame *f);
     void (*close)(void);

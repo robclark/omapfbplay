@@ -458,7 +458,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
         }
     }
 
-    if (display->enable(&ff, disp_flags, pixconv))
+    if (display->enable(&ff, disp_flags, pixconv, &dp))
         return 1;
 
     init_frames();
@@ -634,7 +634,7 @@ main(int argc, char **argv)
     if (!timer)
         error(1);
 
-    if (display->enable(&frame_fmt, flags, pixconv))
+    if (display->enable(&frame_fmt, flags, pixconv, &dp))
         error(1);
 
     init_frames();

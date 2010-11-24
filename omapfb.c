@@ -93,6 +93,8 @@ static int omapfb_open(const char *name, struct frame_format *dp,
     dp->width  = gfx_sinfo.xres;
     dp->height = gfx_sinfo.yres;
     dp->pixfmt = PIX_FMT_YUYV422;
+    dp->y_stride  = 2 * ALIGN(ff->disp_w, 16);
+    dp->uv_stride = 0;
 
     return 0;
 

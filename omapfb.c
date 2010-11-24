@@ -170,20 +170,10 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
 
     vid_pinfo.enabled = 1;
 
-    if ((flags & OFB_FULLSCREEN) ||
-        vid_sinfo.xres > gfx_sinfo.xres || vid_sinfo.yres > gfx_sinfo.yres) {
-        unsigned x, y, w = vid_sinfo.xres, h = vid_sinfo.yres;
-        ofb_scale(&x, &y, &w, &h, gfx_sinfo.xres, gfx_sinfo.yres);
-        vid_pinfo.pos_x      = x;
-        vid_pinfo.pos_y      = y;
-        vid_pinfo.out_width  = w;
-        vid_pinfo.out_height = h;
-    } else {
-        vid_pinfo.pos_x = gfx_sinfo.xres / 2 - vid_sinfo.xres / 2;
-        vid_pinfo.pos_y = gfx_sinfo.yres / 2 - vid_sinfo.yres / 2;
-        vid_pinfo.out_width  = vid_sinfo.xres;
-        vid_pinfo.out_height = vid_sinfo.yres;
-    }
+    vid_pinfo.pos_x      = df->disp_x;
+    vid_pinfo.pos_y      = df->disp_y;
+    vid_pinfo.out_width  = df->disp_w;
+    vid_pinfo.out_height = df->disp_h;
 
     xioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
 

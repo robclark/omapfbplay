@@ -396,6 +396,24 @@ void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
     }
 }
 
+static void set_scale(struct frame_format *df, const struct frame_format *ff,
+                      int flags)
+{
+    if ((flags & OFB_FULLSCREEN) ||
+        ff->disp_w > df->width || ff->disp_h > df->height) {
+        df->disp_w = ff->disp_w;
+        df->disp_h = ff->disp_h;
+        ofb_scale(&df->disp_x, &df->disp_y, &df->disp_w, &df->disp_h,
+                  df->width, df->height);
+    } else {
+        df->disp_x = df->width  / 2 - ff->disp_w / 2;
+        df->disp_y = df->height / 2 - ff->disp_h / 2;
+        df->disp_w = ff->disp_w;
+        df->disp_h = ff->disp_h;
+    }
+
+}
+
 static void
 sigint(int s)
 {
@@ -439,6 +457,8 @@ speed_test(const char *drv, const char *mem, const char *conv,
     display = display_open(drv, &dp, &ff);
     if (!display)
         return 1;
+
+    set_scale(&dp, &ff, disp_flags);
 
     memman = display->memman;
     if (!memman)
@@ -609,6 +629,8 @@ main(int argc, char **argv)
     display = display_open(dispdrv, &dp, &frame_fmt);
     if (!display)
         error(1);
+
+    set_scale(&dp, &frame_fmt, flags);
 
     memman = display->memman;
     if (!memman)

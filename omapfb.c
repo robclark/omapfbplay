@@ -68,7 +68,8 @@ cleanup(void)
     close(vid_fd);   vid_fd    = -1;
 }
 
-static int omapfb_open(const char *name, struct frame_format *dp)
+static int omapfb_open(const char *name, struct frame_format *dp,
+                       struct frame_format *ff)
 {
     gfx_fd = open("/dev/fb0", O_RDWR);
     if (gfx_fd == -1) {

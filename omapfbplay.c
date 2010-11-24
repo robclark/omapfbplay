@@ -123,13 +123,14 @@ timer_open(const char *dname)
 }
 
 static const struct display *
-display_open(const char *dname, struct frame_format *dp)
+display_open(const char *dname, struct frame_format *dp,
+             struct frame_format *ff)
 {
     const struct display *disp = NULL;
     const char *param = NULL;
 
     disp = find_driver(dname, &param, ofb_display_start);
-    if (disp && !disp->open(param, dp))
+    if (disp && !disp->open(param, dp, ff))
         return disp;
 
     fprintf(stderr, "Display driver failed or missing\n");
@@ -435,7 +436,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
     frame_format(w, h, 0, &ff);
 
     dp.pixfmt = ff.pixfmt = PIX_FMT_YUV420P;
-    display = display_open(drv, &dp);
+    display = display_open(drv, &dp, &ff);
     if (!display)
         return 1;
 
@@ -605,7 +606,7 @@ main(int argc, char **argv)
                  &frame_fmt);
 
     dp.pixfmt = st->codec->pix_fmt;
-    display = display_open(dispdrv, &dp);
+    display = display_open(dispdrv, &dp, &frame_fmt);
     if (!display)
         error(1);
 

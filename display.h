@@ -63,7 +63,8 @@ struct pixconv {
 struct display {
     const char *name;
     unsigned flags;
-    int  (*open)(const char *name, struct frame_format *df);
+    int  (*open)(const char *name, struct frame_format *df,
+                 struct frame_format *ff);
     int  (*enable)(struct frame_format *fmt, unsigned flags,
                    const struct pixconv *pc);
     void (*prepare)(struct frame *f);

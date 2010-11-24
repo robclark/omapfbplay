@@ -134,7 +134,7 @@ neon_open:
         push            {r4-r8,lr}
         ldrd            r4,  r5,  [r0, #16]
         ldrd            r6,  r7,  [r0, #24]
-        lsl             r8,  r4,  #1
+        ldr             r8,  [r1, #24]
         mov32           r0,  conv_params
         stm             r0,  {r4-r8}
         mov             r0,  #0

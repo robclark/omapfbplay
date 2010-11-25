@@ -56,6 +56,8 @@ yuv420_to_yuv422:
         add             r4,  sp,  #36
 .Ldo_conv:
         ldm             r4, {r4-r8}
+        add             r4,  r4,  #15
+        bic             r4,  r4,  #15
         push            {r4}
 1:
         mov             tu,   u

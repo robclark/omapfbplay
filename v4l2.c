@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -63,6 +64,7 @@ static const unsigned (*find_format(const unsigned (*tab)[3],
 
 static int vid_fd = -1;
 static const struct pixconv *pixconv;
+struct v4l2_format sfmt;
 
 struct vid_buffer {
     struct v4l2_buffer buf;
@@ -70,8 +72,9 @@ struct vid_buffer {
     unsigned size;
 };
 
-static struct vid_buffer vid_buffers[NUM_BUFFERS];
+static struct vid_buffer *vid_buffers;
 static struct vid_buffer *cur_buf;
+static int num_buffers;
 
 #define xioctl(fd, req, param) do {             \
         if (ioctl(fd, req, param) == -1) {      \
@@ -80,21 +83,100 @@ static struct vid_buffer *cur_buf;
         }                                       \
     } while (0)
 
-static void cleanup(void)
+static int get_plane_fmt(struct v4l2_pix_format *fmt,
+                         int offs[3], int stride[3])
+{
+    offs[0]   = 0;
+    stride[0] = fmt->bytesperline;
+
+    switch (fmt->pixelformat) {
+    case V4L2_PIX_FMT_YUV420:
+        offs[1]   = fmt->width * fmt->bytesperline;
+        offs[2]   = offs[1] + fmt->height * fmt->bytesperline / 4;
+        stride[1] = stride[2] = fmt->bytesperline / 2;
+        return 0;
+    case V4L2_PIX_FMT_NV12:
+        offs[1]   = fmt->height * fmt->bytesperline;
+        stride[1] = fmt->bytesperline;
+        offs[2]   = stride[2] = 0;
+        return 0;
+    case V4L2_PIX_FMT_YUYV:
+        offs[1]   = offs[2]   = 0;
+        stride[1] = stride[2] = 0;
+        return 0;
+    }
+
+    return -1;
+}
+
+static void free_buffers(struct vid_buffer *vb, int nbufs)
 {
     int i;
 
-    i = 0;
-    ioctl(vid_fd, VIDIOC_OVERLAY, &i);
+    for (i = 0; i < nbufs; i++)
+        if (vb[i].data[0])
+            munmap(vb[i].data[0], vb[i].size);
 
-    i = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    free(vb);
+}
+
+static struct vid_buffer *alloc_buffers(struct v4l2_pix_format *fmt,
+                                        int *num_bufs)
+{
+    struct v4l2_requestbuffers req;
+    struct vid_buffer *vb;
+    int offs[3], stride[3];
+    int i, j;
+
+    if (get_plane_fmt(fmt, offs, stride))
+        return NULL;
+
+    vb = malloc(*num_bufs * sizeof(*vb));
+    if (!vb)
+        return NULL;
+
+    req.count  = *num_bufs;
+    req.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    req.memory = V4L2_MEMORY_MMAP;
+
+    xioctl(vid_fd, VIDIOC_REQBUFS, &req);
+
+    for (i = 0; i < req.count; i++) {
+        struct v4l2_buffer *buf = &vb[i].buf;
+        buf->index  = i;
+        buf->type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+        buf->memory = V4L2_MEMORY_MMAP;
+
+        xioctl(vid_fd, VIDIOC_QUERYBUF, buf);
+
+        vb[i].size    = buf->length;
+        vb[i].data[0] = mmap(NULL, buf->length, PROT_READ|PROT_WRITE,
+                             MAP_SHARED, vid_fd, buf->m.offset);
+
+        if (vb[i].data[0] == MAP_FAILED) {
+            vb[i].data[0] = NULL;
+            perror("mmap");
+            goto err;
+        }
+
+        for (j = 1; j <= 2; j++)
+            vb[i].data[j] = offs[j]? vb[i].data[0] + offs[j] : NULL;
+    }
+
+    *num_bufs = req.count;
+    return vb;
+err:
+    free_buffers(vb, req.count);
+    return NULL;
+}
+
+static void cleanup(void)
+{
+    int i = V4L2_BUF_TYPE_VIDEO_OUTPUT;
     ioctl(vid_fd, VIDIOC_STREAMOFF, &i);
 
-    for (i = 0; i < NUM_BUFFERS; i++) {
-        if (vid_buffers[i].data[0])
-            munmap(vid_buffers[i].data[0], vid_buffers[i].size);
-        vid_buffers[i].data[0] = NULL;
-    }
+    free_buffers(vid_buffers, num_buffers);
+    vid_buffers = NULL;
 
     close(vid_fd);
     vid_fd = -1;
@@ -127,10 +209,10 @@ static int get_fbsize(struct frame_format *df)
 static int v4l2_open(const char *name, struct frame_format *df,
                      struct frame_format *ff)
 {
-    struct v4l2_format sfmt = { 0 };
     struct v4l2_capability cap;
     struct v4l2_fmtdesc fmt;
     const unsigned (*pixfmt)[3] = format_map;
+    int offs[3], stride[3];
 
     if (!name)
         name = "/dev/video1";
@@ -174,9 +256,11 @@ static int v4l2_open(const char *name, struct frame_format *df,
 
     xioctl(vid_fd, VIDIOC_S_FMT, &sfmt);
 
+    get_plane_fmt(&sfmt.fmt.pix, offs, stride);
+
     df->pixfmt    = pixfmt[0][2];
-    df->y_stride  = sfmt.fmt.pix.bytesperline;
-    df->uv_stride = 0;
+    df->y_stride  = stride[0];
+    df->uv_stride = stride[1];
 
     if (get_fbsize(df)) {
         df->width     = 0;
@@ -193,34 +277,17 @@ static int v4l2_enable(struct frame_format *ff, unsigned flags,
                        const struct pixconv *pc,
                        struct frame_format *df)
 {
-    struct v4l2_requestbuffers req;
     struct v4l2_format fmt = { 0 };
     int i;
 
-    req.count  = NUM_BUFFERS;
-    req.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-    req.memory = V4L2_MEMORY_MMAP;
-
-    xioctl(vid_fd, VIDIOC_REQBUFS, &req);
-
-    for (i = 0; i < req.count; i++) {
-        struct v4l2_buffer *buf = &vid_buffers[i].buf;
-        buf->index  = i;
-        buf->type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-        buf->memory = V4L2_MEMORY_MMAP;
-
-        xioctl(vid_fd, VIDIOC_QUERYBUF, buf);
-
-        vid_buffers[i].size    = buf->length;
-        vid_buffers[i].data[0] = mmap(NULL, buf->length, PROT_READ|PROT_WRITE,
-                                      MAP_SHARED, vid_fd, buf->m.offset);
-
-        if (vid_buffers[i].data[0] == MAP_FAILED) {
-            vid_buffers[i].data[0] = NULL;
-            perror("mmap");
-            goto err;
-        }
+    if (!vid_buffers) {
+        int nbufs = NUM_BUFFERS;
+        vid_buffers = alloc_buffers(&sfmt.fmt.pix, &nbufs);
+        num_buffers = nbufs;
     }
+
+    if (!vid_buffers)
+        return -1;
 
     fmt.type                 = V4L2_BUF_TYPE_VIDEO_OVERLAY;
     fmt.fmt.win.w.left       = df->disp_x;
@@ -231,7 +298,7 @@ static int v4l2_enable(struct frame_format *ff, unsigned flags,
     fmt.fmt.win.global_alpha = 255;
     xioctl(vid_fd, VIDIOC_S_FMT, &fmt);
 
-    for (i = 0; i < req.count; i++)
+    for (i = 0; i < num_buffers; i++)
         xioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[i].buf);
 
     i = V4L2_BUF_TYPE_VIDEO_OUTPUT;

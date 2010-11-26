@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2009 Mans Rullgard
+    Copyright (C) 2010 Mans Rullgard
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -22,13 +22,22 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-        .macro  end_sec name
-        .section .ofb_\name, "a"
-        .int            0, 0
-        .endm
+#ifndef OFB_CODEC_H
+#define OFB_CODEC_H
 
-        end_sec         display
-        end_sec         timer
-        end_sec         memman
-        end_sec         pixconv
-        end_sec         codec
+#include <libavcodec/avcodec.h>
+#include "util.h"
+
+struct codec {
+    const char *name;
+    unsigned flags;
+    int (*open)(const char *name, AVCodecContext *params);
+    int (*decode)(AVPacket *p);
+    void (*close)(void);
+};
+
+extern const struct codec *ofb_codec_start[];
+
+#define CODEC(name) DRIVER(codec, name)
+
+#endif

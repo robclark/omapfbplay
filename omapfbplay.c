@@ -40,6 +40,7 @@
 #include "timer.h"
 #include "util.h"
 #include "memman.h"
+#include "codec.h"
 
 #define BUFFER_SIZE (64*1024*1024)
 
@@ -170,47 +171,32 @@ static pthread_mutex_t disp_lock;
 static sem_t disp_sem;
 static sem_t free_sem;
 
-static int pic_num;
-
 static int stop;
 
 static int noaspect;
 
 #define EDGE_WIDTH 32
 
-static int
-ofb_get_buffer(AVCodecContext *ctx, AVFrame *pic)
+struct frame *ofbp_get_frame(void)
 {
     struct frame *f = frames + free_tail;
-    int i;
 
     sem_wait(&free_sem);
 
     if (free_tail < 0) {
         fprintf(stderr, "no more buffers\n");
-        return -1;
+        return NULL;
     }
-
-    for (i = 0; i < 3; i++) {
-        pic->data[i] = pic->base[i] = f->data[i];
-        pic->linesize[i] = f->linesize[i];
-    }
-
-    pic->opaque = f;
-    pic->type = FF_BUFFER_TYPE_USER;
-    pic->age = ++pic_num - f->pic_num;
-    f->pic_num = pic_num;
-    f->refs++;
 
     free_tail = f->next;
     frames[free_tail].prev = -1;
     f->next = -1;
+    f->refs++;
 
-    return 0;
+    return f;
 }
 
-static void
-ofb_release_frame(struct frame *f)
+void ofbp_put_frame(struct frame *f)
 {
     unsigned fnum = f->frame_num;
 
@@ -221,32 +207,6 @@ ofb_release_frame(struct frame *f)
         free_head = fnum;
         sem_post(&free_sem);
     }
-}
-
-static void
-ofb_release_buffer(AVCodecContext *ctx, AVFrame *pic)
-{
-    struct frame *f = pic->opaque;
-    int i;
-
-    for (i = 0; i < 3; i++)
-        pic->data[i] = NULL;
-
-    ofb_release_frame(f);
-}
-
-static int
-ofb_reget_buffer(AVCodecContext *ctx, AVFrame *pic)
-{
-    struct frame *f = pic->opaque;
-    fprintf(stderr, "reget_buffer   %2d\n", f->frame_num);
-
-    if (!pic->data[0]) {
-        pic->buffer_hints |= FF_BUFFER_HINTS_READABLE;
-        return ofb_get_buffer(ctx, pic);
-    }
-
-    return 0;
 }
 
 static void *
@@ -283,7 +243,7 @@ disp_thread(void *p)
         timer->wait(&ftime);
         display->show(f);
 
-        ofb_release_frame(f);
+        ofbp_put_frame(f);
 
         if (++nf1 - nf2 == 50) {
             timer->read(&t2);
@@ -310,16 +270,14 @@ disp_thread(void *p)
     while (disp_tail != -1) {
         struct frame *f = frames + disp_tail;
         disp_tail = f->next;
-        ofb_release_frame(f);
+        ofbp_put_frame(f);
     }
 
     return NULL;
 }
 
-static void
-post_frame(AVFrame *pic)
+void ofbp_post_frame(struct frame *f)
 {
-    struct frame *f = pic->opaque;
     unsigned fnum = f->frame_num;
 
     f->prev = disp_head;
@@ -513,13 +471,12 @@ int
 main(int argc, char **argv)
 {
     AVFormatContext *afc;
-    AVCodec *codec;
-    AVCodecContext *avc;
     AVStream *st;
     AVPacket pk;
     struct frame_format frame_fmt;
     const struct pixconv *pixconv = NULL;
     const struct memman *memman = NULL;
+    const struct codec *codec = NULL;
     struct frame_format dp;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
@@ -529,13 +486,13 @@ main(int argc, char **argv)
     char *timer_drv = NULL;
     char *memman_drv = NULL;
     char *pixconv_drv = NULL;
+    char *codec_drv = NULL;
     int opt;
-    int err;
     int ret = 0;
 
 #define error(n) do { ret = n; goto out; } while (0)
 
-    while ((opt = getopt(argc, argv, "b:d:fFM:P:st:T:")) != -1) {
+    while ((opt = getopt(argc, argv, "b:d:fFM:P:st:T:v:")) != -1) {
         switch (opt) {
         case 'b':
             bufsize = strtol(optarg, NULL, 0) * 1048576;
@@ -563,6 +520,9 @@ main(int argc, char **argv)
         case 'T':
             timer_drv = optarg;
             break;
+        case 'v':
+            codec_drv = optarg;
+            break;
         }
     }
 
@@ -586,28 +546,15 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    codec = avcodec_find_decoder(st->codec->codec_id);
+    codec = find_driver(codec_drv, NULL, ofb_codec_start);
     if (!codec) {
-        fprintf(stderr, "Can't find codec %x\n", st->codec->codec_id);
-        exit(1);
+        fprintf(stderr, "Decoder '%s' not found\n", codec_drv);
+        error(1);
     }
 
-    avc = avcodec_alloc_context();
-
-    avc->width          = st->codec->width;
-    avc->height         = st->codec->height;
-    avc->time_base      = st->codec->time_base;
-    avc->extradata      = st->codec->extradata;
-    avc->extradata_size = st->codec->extradata_size;
-
-    avc->get_buffer     = ofb_get_buffer;
-    avc->release_buffer = ofb_release_buffer;
-    avc->reget_buffer   = ofb_reget_buffer;
-
-    err = avcodec_open(avc, codec);
-    if (err) {
-        fprintf(stderr, "avcodec_open: %d\n", err);
-        exit(1);
+    if (codec->open(NULL, st->codec)) {
+        fprintf(stderr, "Error opening decoder\n");
+        error(1);
     }
 
     frame_fmt.pixfmt = st->codec->pix_fmt;
@@ -658,17 +605,8 @@ main(int argc, char **argv)
     pthread_create(&dispt, NULL, disp_thread, st);
 
     while (!stop && !av_read_frame(afc, &pk)) {
-        AVFrame f;
-        int gp = 0;
-
-        if (pk.stream_index == st->index) {
-            avcodec_decode_video2(avc, &f, &gp, &pk);
-
-            if (gp) {
-                post_frame(&f);
-            }
-        }
-
+        if (pk.stream_index == st->index)
+            codec->decode(&pk);
         av_free_packet(&pk);
     }
 
@@ -683,10 +621,9 @@ main(int argc, char **argv)
     pthread_join(dispt, NULL);
 
 out:
-    if (avc) avcodec_close(avc);
     if (afc) av_close_input_file(afc);
-    av_free(avc);
 
+    if (codec)   codec->close();
     if (timer)   timer->close();
     if (memman)  memman->free_frames(frames, num_frames);
     if (display) display->close();

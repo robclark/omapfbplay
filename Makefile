@@ -24,7 +24,7 @@ LDFLAGS = $(SYSROOT)
 LDFLAGS += $(foreach FF,$(FFMPEG),$(addprefix -L$(FF)/,$(FFMPEG_LIBS)))
 LDLIBS = $(FFMPEG_LIBS:lib%=-l%) -lm -lpthread -lrt $(EXTRA_LIBS)
 
-DRV-y                    = sysclk.o sysmem.o
+DRV-y                    = sysclk.o sysmem.o avcodec.o
 DRV-$(CMEM)             += cmem.o
 DRV-$(NETSYNC)          += netsync.o
 DRV-$(OMAPFB)           += omapfb.o

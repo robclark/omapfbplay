@@ -33,3 +33,4 @@
         start_sec       timer
         start_sec       memman
         start_sec       pixconv
+        start_sec       codec

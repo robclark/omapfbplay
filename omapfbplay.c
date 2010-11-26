@@ -443,9 +443,6 @@ speed_test(const char *drv, const char *mem, const char *conv,
     if (*size++)
         n = strtoul(size, NULL, 0);
 
-    w &= ~15;
-    h &= ~15;
-
     if (!w || !h || !n) {
         fprintf(stderr, "Invalid size/count '%s'\n", ss);
         return 1;

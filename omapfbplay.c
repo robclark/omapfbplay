@@ -342,21 +342,14 @@ post_frame(AVFrame *pic)
 }
 
 static void
-frame_format(int width, int height, int border, struct frame_format *ff)
+frame_format(int width, int height, struct frame_format *ff)
 {
-    ff->width  = ALIGN(width,  32);
-    ff->height = ALIGN(height, 32);
-    ff->disp_x = 0;
-    ff->disp_y = 0;
+    ff->width  = ALIGN(width,  32) + EDGE_WIDTH * 2;
+    ff->height = ALIGN(height, 32) + EDGE_WIDTH * 2;
+    ff->disp_x = EDGE_WIDTH;
+    ff->disp_y = EDGE_WIDTH;
     ff->disp_w = width;
     ff->disp_h = height;
-
-    if (border) {
-        ff->width  += EDGE_WIDTH * 2;
-        ff->height += EDGE_WIDTH * 2;
-        ff->disp_x = EDGE_WIDTH;
-        ff->disp_y = EDGE_WIDTH;
-    }
 }
 
 static void
@@ -448,7 +441,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
         return 1;
     }
 
-    frame_format(w, h, 0, &ff);
+    frame_format(w, h, &ff);
 
     dp.pixfmt = ff.pixfmt = PIX_FMT_YUV420P;
     display = display_open(drv, &dp, &ff);
@@ -618,9 +611,7 @@ main(int argc, char **argv)
     }
 
     frame_fmt.pixfmt = st->codec->pix_fmt;
-    frame_format(st->codec->width, st->codec->height,
-                 !(st->codec->flags & CODEC_FLAG_EMU_EDGE),
-                 &frame_fmt);
+    frame_format(st->codec->width, st->codec->height, &frame_fmt);
 
     dp.pixfmt = st->codec->pix_fmt;
     display = display_open(dispdrv, &dp, &frame_fmt);

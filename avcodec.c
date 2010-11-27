@@ -76,8 +76,10 @@ reget_buffer(AVCodecContext *ctx, AVFrame *pic)
     return 0;
 }
 
-static int lavc_open(const char *name, AVCodecContext *params)
+static int lavc_open(const char *name, AVCodecContext *params,
+                     struct frame_format *ff)
 {
+    int edge_width;
     AVCodec *codec;
     int err;
 
@@ -104,6 +106,16 @@ static int lavc_open(const char *name, AVCodecContext *params)
         fprintf(stderr, "avcodec_open: %d\n", err);
         return err;
     }
+
+    edge_width = avcodec_get_edge_width();
+
+    ff->width  = ALIGN(params->width, 32) + 2 * ALIGN(edge_width, 32);
+    ff->height = params->height + 2 * edge_width;
+    ff->disp_x = ALIGN(edge_width, 32);
+    ff->disp_y = edge_width;
+    ff->disp_w = params->width;
+    ff->disp_h = params->height;
+    ff->pixfmt = params->pix_fmt;
 
     return 0;
 }

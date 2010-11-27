@@ -31,7 +31,8 @@
 struct codec {
     const char *name;
     unsigned flags;
-    int (*open)(const char *name, AVCodecContext *params);
+    int (*open)(const char *name, AVCodecContext *params,
+                struct frame_format *ff);
     int (*decode)(AVPacket *p);
     void (*close)(void);
 };

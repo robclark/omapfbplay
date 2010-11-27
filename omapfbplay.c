@@ -526,7 +526,7 @@ main(int argc, char **argv)
     AVFormatContext *afc;
     AVStream *st;
     AVPacket pk;
-    struct frame_format frame_fmt;
+    struct frame_format frame_fmt = { 0 };
     const struct pixconv *pixconv = NULL;
     const struct memman *memman = NULL;
     const struct codec *codec = NULL;
@@ -606,15 +606,17 @@ main(int argc, char **argv)
         error(1);
     }
 
-    if (codec->open(NULL, st->codec)) {
+    if (codec->open(NULL, st->codec, &frame_fmt)) {
         fprintf(stderr, "Error opening decoder\n");
         error(1);
     }
 
-    frame_fmt.pixfmt = st->codec->pix_fmt;
-    frame_format(st->codec->width, st->codec->height, &frame_fmt);
+    if (!frame_fmt.width) {
+        frame_fmt.pixfmt = st->codec->pix_fmt;
+        frame_format(st->codec->width, st->codec->height, &frame_fmt);
+    }
 
-    dp.pixfmt = st->codec->pix_fmt;
+    dp.pixfmt = frame_fmt.pixfmt;
     display = display_open(dispdrv, &dp, &frame_fmt);
     if (!display)
         error(1);

@@ -436,7 +436,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
            char *size, unsigned disp_flags)
 {
     const struct pixconv *pixconv = NULL;
-    const struct memman *memman;
+    const struct memman *memman = NULL;
     struct frame_format dp;
     struct frame_format ff;
     struct timespec t1, t2;
@@ -466,7 +466,11 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     set_scale(&dp, &ff, disp_flags);
 
-    memman = display->memman;
+    if (display->memman) {
+        memman = display->memman;
+        ff.pixfmt = dp.pixfmt;
+    }
+
     if (!memman)
         memman = find_driver(mem, NULL, ofb_memman_start);
 

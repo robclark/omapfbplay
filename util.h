@@ -39,6 +39,6 @@
 #define OFB_FULLSCREEN 1
 #define OFB_DOUBLE_BUF 2
 #define OFB_PHYS_MEM   4
-#define OFB_NOCONV     8
+#define OFB_PRIV_MEM   8
 
 #endif /* OFB_UTIL_H */

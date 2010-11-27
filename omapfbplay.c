@@ -477,7 +477,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
     if (memman->alloc_frames(&ff, 0, &frames, &num_frames))
         return 1;
 
-    if (!(display->flags & OFB_NOCONV)) {
+    if (memman != display->memman) {
         pixconv = pixconv_open(conv, &ff, &dp);
         if (!pixconv)
             return 1;
@@ -619,7 +619,15 @@ main(int argc, char **argv)
 
     set_scale(&dp, &frame_fmt, flags);
 
-    memman = display->memman;
+    if (display->memman) {
+        if (dp.pixfmt == frame_fmt.pixfmt) {
+            memman = display->memman;
+        } else if (display->flags & OFB_PRIV_MEM) {
+            fprintf(stderr, "Decoder/display pixel format mismatch\n");
+            error(1);
+        }
+    }
+
     if (!memman)
         memman = find_driver(memman_drv, NULL, ofb_memman_start);
     if (!memman)
@@ -628,7 +636,7 @@ main(int argc, char **argv)
     if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
         error(1);
 
-    if (!(display->flags & OFB_NOCONV)) {
+    if (memman != display->memman) {
         pixconv = pixconv_open(pixconv_drv, &frame_fmt, &dp);
         if (!pixconv)
             error(1);

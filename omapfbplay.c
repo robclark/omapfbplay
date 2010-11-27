@@ -488,10 +488,10 @@ speed_test(const char *drv, const char *mem, const char *conv,
         }
     }
 
+    init_frames();
+
     if (display->enable(&ff, disp_flags, pixconv, &dp))
         return 1;
-
-    init_frames();
 
     bufsize = ff.disp_w * ff.disp_h * 3 / 2;
 
@@ -643,10 +643,10 @@ main(int argc, char **argv)
     if (!timer)
         error(1);
 
+    init_frames();
+
     if (display->enable(&frame_fmt, flags, pixconv, &dp))
         error(1);
-
-    init_frames();
 
     pthread_mutex_init(&disp_lock, NULL);
     sem_init(&disp_sem, 0, 0);

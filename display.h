@@ -83,6 +83,8 @@ extern const struct pixconv *ofb_pixconv_start[];
 #define OFB_PHYS_MEM   4
 #define OFB_NOCONV     8
 
+#define MIN_FRAMES 2
+
 struct frame *ofbp_get_frame(void);
 void ofbp_put_frame(struct frame *f);
 void ofbp_post_frame(struct frame *f);

@@ -52,7 +52,7 @@ cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
 
     frame_offset = ff->width * ff->disp_y + ff->disp_x;
     frame_size = buf_w * buf_h * 3 / 2;
-    num_frames = MAX(bufsize / frame_size, 1);
+    num_frames = MAX(bufsize / frame_size, MIN_FRAMES);
     bufsize = num_frames * frame_size;
 
     y_offset = buf_w * buf_h + frame_offset / 2;

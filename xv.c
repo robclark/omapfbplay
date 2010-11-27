@@ -63,7 +63,7 @@ xv_alloc_frames(struct frame_format *ff, unsigned bufsize,
     y_offset = ff->width * ff->disp_y + ff->disp_x;
     uv_offset = ff->width * ff->disp_y / 4 + ff->disp_x / 2;
     frame_size = ff->width * ff->height * 3 / 2;
-    num_frames = MAX(bufsize / frame_size, 1);
+    num_frames = MAX(bufsize / frame_size, MIN_FRAMES);
     bufsize = num_frames * frame_size;
 
     frames = malloc(num_frames * sizeof(*frames));

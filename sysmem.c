@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "display.h"
+#include "frame.h"
 #include "memman.h"
 #include "util.h"
 

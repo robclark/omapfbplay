@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <cmem.h>
 
-#include "display.h"
+#include "frame.h"
 #include "memman.h"
 #include "util.h"
 

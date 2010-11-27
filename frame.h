@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2009 Mans Rullgard
+    Copyright (C) 2010 Mans Rullgard
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -20,21 +20,37 @@
     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
     DEALINGS IN THE SOFTWARE.
-*/
+ */
 
-#ifndef OFB_MEM_H
-#define OFB_MEM_H
+#ifndef OFBP_FRAME_H
+#define OFBP_FRAME_H
 
-#include "frame.h"
+#include <stdint.h>
+#include <libavutil/pixfmt.h>
 
-struct memman {
-    const char *name;
-    unsigned flags;
-    int  (*alloc_frames)(struct frame_format *ff, unsigned max_size,
-                         struct frame **fr, unsigned *nf);
-    void (*free_frames)(struct frame *frames, unsigned nf);
+struct frame_format {
+    unsigned width, height;
+    unsigned disp_x, disp_y;
+    unsigned disp_w, disp_h;
+    unsigned y_stride, uv_stride;
+    enum PixelFormat pixfmt;
 };
 
-extern const struct memman *ofb_memman_start[];
+struct frame {
+    uint8_t *data[3];
+    uint8_t *phys[3];
+    int linesize[3];
+    int frame_num;
+    int pic_num;
+    int next;
+    int prev;
+    int refs;
+};
 
-#endif /* OFB_MEM_H */
+#define MIN_FRAMES 2
+
+struct frame *ofbp_get_frame(void);
+void ofbp_put_frame(struct frame *f);
+void ofbp_post_frame(struct frame *f);
+
+#endif

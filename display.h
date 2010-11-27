@@ -26,28 +26,9 @@
 #define OFB_DISPLAY_H
 
 #include <stdint.h>
-#include <libavutil/pixfmt.h>
 
+#include "frame.h"
 #include "util.h"
-
-struct frame_format {
-    unsigned width, height;
-    unsigned disp_x, disp_y;
-    unsigned disp_w, disp_h;
-    unsigned y_stride, uv_stride;
-    enum PixelFormat pixfmt;
-};
-
-struct frame {
-    uint8_t *data[3];
-    uint8_t *phys[3];
-    int linesize[3];
-    int frame_num;
-    int pic_num;
-    int next;
-    int prev;
-    int refs;
-};
 
 struct pixconv {
     const char *name;
@@ -77,12 +58,6 @@ extern const struct display *ofb_display_start[];
 extern const struct pixconv *ofb_pixconv_start[];
 
 #define DISPLAY(name) DRIVER(display, name)
-
-#define MIN_FRAMES 2
-
-struct frame *ofbp_get_frame(void);
-void ofbp_put_frame(struct frame *f);
-void ofbp_post_frame(struct frame *f);
 
 void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
                unsigned dw, unsigned dh);

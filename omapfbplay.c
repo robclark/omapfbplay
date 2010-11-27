@@ -41,6 +41,7 @@
 #include "util.h"
 #include "memman.h"
 #include "codec.h"
+#include "frame.h"
 
 #define BUFFER_SIZE (64*1024*1024)
 

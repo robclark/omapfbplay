@@ -286,6 +286,7 @@ static void xv_show(struct frame *f)
                   out_x, out_y, out_w, out_h, False);
 
     XSync(dpy, False);
+    ofbp_put_frame(f);
 }
 
 static void xv_close(void)

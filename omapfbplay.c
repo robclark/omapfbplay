@@ -243,8 +243,6 @@ disp_thread(void *p)
         timer->wait(&ftime);
         display->show(f);
 
-        ofbp_put_frame(f);
-
         if (++nf1 - nf2 == 50) {
             timer->read(&t2);
             fprintf(stderr, "%3d fps, buffer %3d\r",
@@ -498,8 +496,9 @@ speed_test(const char *drv, const char *mem, const char *conv,
     clock_gettime(CLOCK_REALTIME, &t1);
 
     for (i = 0; i < n && !stop; i++) {
-        display->prepare(frames);
-        display->show(frames);
+        struct frame *f = ofbp_get_frame();
+        display->prepare(f);
+        display->show(f);
     }
 
     clock_gettime(CLOCK_REALTIME, &t2);

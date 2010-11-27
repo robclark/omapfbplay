@@ -224,6 +224,8 @@ static void omapfb_show(struct frame *f)
         fb_page ^= fb_page_flip;
         ioctl(vid_fd, OMAPFB_WAITFORGO);
     }
+
+    ofbp_put_frame(f);
 }
 
 static void omapfb_close(void)

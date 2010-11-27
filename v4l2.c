@@ -264,6 +264,7 @@ static void v4l2_show(struct frame *f)
     pixconv->finish();
     ioctl(vid_fd, VIDIOC_QBUF, &cur_buf->buf);
     cur_buf = NULL;
+    ofbp_put_frame(f);
 }
 
 static void v4l2_close(void)

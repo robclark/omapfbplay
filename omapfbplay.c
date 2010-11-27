@@ -372,6 +372,64 @@ sigint(int s)
     sem_post(&disp_sem);
 }
 
+#define TPVAL(i, sub) (i & (0x100 >> sub)? 255 - (i << sub) : ( i<< sub))
+
+static void test_pattern(const struct frame *frames, int num_frames,
+                         const struct frame_format *ff)
+{
+    int yplane, uplane, vplane;
+    int ystart, ustart, vstart;
+    int yinc, uinc, vinc;
+    int hsub, vsub;
+    int i, j, k;
+
+    switch (ff->pixfmt) {
+    case PIX_FMT_YUV420P:
+        yplane = 0; ystart = 0; yinc = 1;
+        uplane = 1; ustart = 0; uinc = 1;
+        vplane = 2; vstart = 0; vinc = 1;
+        hsub = vsub = 1;
+        break;
+    case PIX_FMT_YUYV422:
+        yplane = uplane = vplane = 0;
+        ystart = 0; yinc = 2;
+        ustart = 1; uinc = 4;
+        vstart = 3; vinc = 4;
+        hsub = 1;
+        vsub = 0;
+        break;
+    case PIX_FMT_NV12:
+        yplane = 0; ystart = 0; yinc = 1;
+        uplane = vplane = 1;
+        ustart = 0;
+        vstart = 1;
+        uinc = vinc = 2;
+        hsub = vsub = 1;
+        break;
+    default:
+        fprintf(stderr, "Unknown pixel format %d\n", ff->pixfmt);
+        return;
+    }
+
+    for (k = 0; k < num_frames; k++) {
+        const struct frame *f = frames + k;
+        uint8_t *y = f->data[yplane] + ystart;
+        uint8_t *u = f->data[uplane] + ustart;
+        uint8_t *v = f->data[vplane] + vstart;
+
+        for (i = 0; i < ff->disp_h; i++)
+            for (j = 0; j < ff->disp_w; j++)
+                y[i*f->linesize[yplane] + j*yinc] = 128;
+
+        for (i = 0; i < ff->disp_h >> vsub; i++) {
+            for (j = 0; j < ff->disp_w >> hsub; j++) {
+                u[i*f->linesize[uplane] + j*uinc] = TPVAL(i, vsub);
+                v[i*f->linesize[vplane] + j*vinc] = TPVAL(j, hsub);
+            }
+        }
+    }
+}
+
 static int
 speed_test(const char *drv, const char *mem, const char *conv,
            char *size, unsigned disp_flags)
@@ -381,7 +439,6 @@ speed_test(const char *drv, const char *mem, const char *conv,
     struct frame_format dp;
     struct frame_format ff;
     struct timespec t1, t2;
-    uint8_t *y, *u, *v;
     unsigned w, h = 0;
     unsigned n = 1000;
     unsigned bufsize;
@@ -433,18 +490,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
 
     bufsize = ff.disp_w * ff.disp_h * 3 / 2;
 
-    y = frames->data[0];
-    u = frames->data[1];
-    v = frames->data[2];
-
-    memset(y, 128, ff.disp_h * frames->linesize[0]);
-
-    for (i = 0; i < ff.disp_h / 2; i++) {
-        for (j = 0; j < ff.disp_w / 2; j++) {
-            u[i*frames->linesize[1] + j] = 2*i;
-            v[i*frames->linesize[2] + j] = 2*j;
-        }
-    }
+    test_pattern(frames, num_frames, &ff);
 
     signal(SIGINT, sigint);
 

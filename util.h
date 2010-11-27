@@ -36,4 +36,9 @@
         __attribute__((section(".ofb_"#type), used)) = &TN(type, name); \
     static const struct type TN(type, name)
 
+#define OFB_FULLSCREEN 1
+#define OFB_DOUBLE_BUF 2
+#define OFB_PHYS_MEM   4
+#define OFB_NOCONV     8
+
 #endif /* OFB_UTIL_H */

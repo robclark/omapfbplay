@@ -78,11 +78,6 @@ extern const struct pixconv *ofb_pixconv_start[];
 
 #define DISPLAY(name) DRIVER(display, name)
 
-#define OFB_FULLSCREEN 1
-#define OFB_DOUBLE_BUF 2
-#define OFB_PHYS_MEM   4
-#define OFB_NOCONV     8
-
 #define MIN_FRAMES 2
 
 struct frame *ofbp_get_frame(void);

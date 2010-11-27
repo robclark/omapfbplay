@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2009 Mans Rullgard
+    Copyright (C) 2010 Mans Rullgard
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation
@@ -22,33 +22,23 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_DISPLAY_H
-#define OFB_DISPLAY_H
+#ifndef OFBP_PIXCONV_H
+#define OFBP_PIXCONV_H
 
 #include <stdint.h>
-
 #include "frame.h"
-#include "pixconv.h"
-#include "util.h"
 
-struct display {
+struct pixconv {
     const char *name;
     unsigned flags;
-    int  (*open)(const char *name, struct frame_format *df,
-                 struct frame_format *ff);
-    int  (*enable)(struct frame_format *fmt, unsigned flags,
-                   const struct pixconv *pc, struct frame_format *df);
-    void (*prepare)(struct frame *f);
-    void (*show)(struct frame *f);
+    int  (*open)(const struct frame_format *ffmt,
+                 const struct frame_format *dfmt);
+    void (*convert)(uint8_t *vdst[3], uint8_t *vsrc[3],
+                    uint8_t *pdst[3], uint8_t *psrc[3]);
+    void (*finish)(void);
     void (*close)(void);
-    const struct memman *memman;
 };
 
-extern const struct display *ofb_display_start[];
+extern const struct pixconv *ofb_pixconv_start[];
 
-#define DISPLAY(name) DRIVER(display, name)
-
-void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
-               unsigned dw, unsigned dh);
-
-#endif /* OFB_DISPLAY_H */
+#endif

@@ -27,8 +27,7 @@
 #include <stdint.h>
 #include <sdma.h>
 
-#include "display.h"
-#include "memman.h"
+#include "pixconv.h"
 #include "util.h"
 
 #define DMA4_CCR        0x00

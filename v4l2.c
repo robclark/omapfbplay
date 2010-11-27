@@ -35,6 +35,7 @@
 #include <linux/fb.h>
 
 #include "display.h"
+#include "memman.h"
 #include "util.h"
 
 static const unsigned format_map[][3] = {
@@ -72,6 +73,7 @@ struct vid_buffer {
     unsigned size;
 };
 
+static struct frame *vid_frames;
 static struct vid_buffer *vid_buffers;
 static struct vid_buffer *cur_buf;
 static int num_buffers;
@@ -283,11 +285,16 @@ static int v4l2_enable(struct frame_format *ff, unsigned flags,
     if (!vid_buffers) {
         int nbufs = NUM_BUFFERS;
         vid_buffers = alloc_buffers(&sfmt.fmt.pix, &nbufs);
+        if (!vid_buffers)
+            goto err;
         num_buffers = nbufs;
+        for (i = 0; i < num_buffers; i++)
+            xioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[i].buf);
+        pixconv = pc;
+    } else {
+        struct frame *f = ofbp_get_frame();
+        xioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[f->frame_num].buf);
     }
-
-    if (!vid_buffers)
-        return -1;
 
     fmt.type                 = V4L2_BUF_TYPE_VIDEO_OVERLAY;
     fmt.fmt.win.w.left       = df->disp_x;
@@ -298,46 +305,118 @@ static int v4l2_enable(struct frame_format *ff, unsigned flags,
     fmt.fmt.win.global_alpha = 255;
     xioctl(vid_fd, VIDIOC_S_FMT, &fmt);
 
-    for (i = 0; i < num_buffers; i++)
-        xioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[i].buf);
-
     i = V4L2_BUF_TYPE_VIDEO_OUTPUT;
     xioctl(vid_fd, VIDIOC_STREAMON, &i);
-
-    pixconv = pc;
 
     return 0;
 err:
     return -1;
 }
 
+static int dqbuf(struct v4l2_buffer *buf)
+{
+    buf->type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    buf->memory = V4L2_MEMORY_MMAP;
+    return ioctl(vid_fd, VIDIOC_DQBUF, buf);
+}
+
 static void v4l2_prepare(struct frame *f)
 {
-    struct v4l2_buffer buf = { 0 };
-
-    buf.type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-    buf.memory = V4L2_MEMORY_MMAP;
-    ioctl(vid_fd, VIDIOC_DQBUF, &buf);
-
-    cur_buf = &vid_buffers[buf.index];
-    pixconv->convert(cur_buf->data, f->data, NULL, NULL);
+    if (pixconv) {
+        struct v4l2_buffer buf;
+        dqbuf(&buf);
+        cur_buf = &vid_buffers[buf.index];
+        pixconv->convert(cur_buf->data, f->data, NULL, NULL);
+    }
 }
 
 static void v4l2_show(struct frame *f)
 {
-    if (!cur_buf)
-        return;
-
-    pixconv->finish();
-    ioctl(vid_fd, VIDIOC_QBUF, &cur_buf->buf);
-    cur_buf = NULL;
-    ofbp_put_frame(f);
+    if (pixconv) {
+        pixconv->finish();
+        ioctl(vid_fd, VIDIOC_QBUF, &cur_buf->buf);
+        cur_buf = NULL;
+        ofbp_put_frame(f);
+    } else {
+        struct v4l2_buffer buf;
+        ioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[f->frame_num].buf);
+        dqbuf(&buf);
+        ofbp_put_frame(&vid_frames[buf.index]);
+    }
 }
 
 static void v4l2_close(void)
 {
     cleanup();
 }
+
+static int v4l2_alloc(struct frame_format *ff, unsigned max_mem,
+                      struct frame **fr, unsigned *nf)
+{
+    struct vid_buffer *vb;
+    struct frame *frames;
+    int offs[3], stride[3];
+    int frame_size;
+    int nframes;
+    int i, j;
+
+    if (get_plane_fmt(&sfmt.fmt.pix, offs, stride))
+        return -1;
+
+    switch (sfmt.fmt.pix.pixelformat) {
+    case V4L2_PIX_FMT_YUV420:
+        frame_size = ff->width * ff->height * 3 / 2;
+        break;
+    case V4L2_PIX_FMT_NV12:
+        frame_size = ff->width * ff->height * 3 / 2;
+        break;
+    case V4L2_PIX_FMT_YUYV:
+        frame_size = ff->width * ff->height * 2;
+        break;
+    default:
+        return -1;
+    }
+
+    nframes = MAX(max_mem / frame_size, MIN_FRAMES + 1);
+    fprintf(stderr, "V4L2: memman allocating %d frames\n", nframes);
+
+    vb = alloc_buffers(&sfmt.fmt.pix, &nframes);
+    if (!vb)
+        return -1;
+
+    frames = malloc(nframes * sizeof(*frames));
+    if (!frames)
+        goto err;
+
+    for (i = 0; i < nframes; i++) {
+        for (j = 0; j < 3; j++) {
+            frames[i].data[j] = vb[i].data[j];
+            frames[i].linesize[j] = stride[j];
+        }
+    }
+
+    vid_buffers = vb;
+
+    *fr = vid_frames = frames;
+    *nf = nframes;
+
+    return 0;
+err:
+    free_buffers(vb, nframes);
+    return -1;
+}
+
+static void v4l2_free(struct frame *frames, unsigned num_frames)
+{
+    free(vid_frames);
+    vid_frames = NULL;
+}
+
+static const struct memman v4l2_memman = {
+    .name         = "v4l2",
+    .alloc_frames = v4l2_alloc,
+    .free_frames  = v4l2_free,
+};
 
 DISPLAY(v4l2) = {
     .name    = "v4l2",
@@ -347,4 +426,5 @@ DISPLAY(v4l2) = {
     .prepare = v4l2_prepare,
     .show    = v4l2_show,
     .close   = v4l2_close,
+    .memman  = &v4l2_memman,
 };

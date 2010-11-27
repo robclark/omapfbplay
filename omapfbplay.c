@@ -325,6 +325,7 @@ init_frames(void)
 
     free_head = num_frames - 1;
     frames[free_head].next = -1;
+    sem_init(&free_sem, 0, num_frames - 1);
 }
 
 void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
@@ -644,7 +645,6 @@ main(int argc, char **argv)
 
     pthread_mutex_init(&disp_lock, NULL);
     sem_init(&disp_sem, 0, 0);
-    sem_init(&free_sem, 0, num_frames - 1);
 
     signal(SIGINT, sigint);
 

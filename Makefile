@@ -56,6 +56,6 @@ $(O)%.o: %.S
 	$(CC) $(CPPFLAGS) $(ASFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(O)*.o $(O)omapfbplay
+	rm -f $(O)*.o $(O)*.d $(O)omapfbplay
 
 -include $(OBJ:.o=.d)

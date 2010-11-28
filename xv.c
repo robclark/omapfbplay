@@ -55,18 +55,14 @@ static int
 xv_alloc_frames(struct frame_format *ff, unsigned bufsize,
                 struct frame **fr, unsigned *nf)
 {
-    unsigned y_offset;
-    unsigned uv_offset;
     unsigned frame_size;
     int i;
 
-    y_offset = ff->width * ff->disp_y + ff->disp_x;
-    uv_offset = ff->width * ff->disp_y / 4 + ff->disp_x / 2;
     frame_size = ff->width * ff->height * 3 / 2;
     num_frames = MAX(bufsize / frame_size, MIN_FRAMES);
     bufsize = num_frames * frame_size;
 
-    frames = malloc(num_frames * sizeof(*frames));
+    frames = calloc(num_frames, sizeof(*frames));
     if (!frames)
         goto err;
 
@@ -89,9 +85,9 @@ xv_alloc_frames(struct frame_format *ff, unsigned bufsize,
 
         xv_frames[i].xvi = xvi;
 
-        frames[i].data[0] = xvi->data + xvi->offsets[0] + y_offset;
-        frames[i].data[1] = xvi->data + xvi->offsets[2] + uv_offset;
-        frames[i].data[2] = xvi->data + xvi->offsets[1] + uv_offset;
+        frames[i].virt[0] = xvi->data + xvi->offsets[0];
+        frames[i].virt[1] = xvi->data + xvi->offsets[2];
+        frames[i].virt[2] = xvi->data + xvi->offsets[1];
         frames[i].linesize[0] = xvi->pitches[0];
         frames[i].linesize[1] = xvi->pitches[2];
         frames[i].linesize[2] = xvi->pitches[1];

@@ -37,8 +37,10 @@ struct frame_format {
 };
 
 struct frame {
-    uint8_t *data[3];
+    uint8_t *virt[3];
     uint8_t *phys[3];
+    uint8_t *vdata[3];
+    uint8_t *pdata[3];
     int linesize[3];
     int frame_num;
     int pic_num;

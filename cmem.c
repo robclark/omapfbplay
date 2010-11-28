@@ -40,7 +40,6 @@ cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
 {
     int buf_w = ff->width, buf_h = ff->height;
     struct frame *frames;
-    unsigned frame_offset;
     unsigned num_frames;
     unsigned frame_size;
     uint8_t *phys;
@@ -50,12 +49,11 @@ cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
     if (CMEM_init())
         return -1;
 
-    frame_offset = ff->width * ff->disp_y + ff->disp_x;
     frame_size = buf_w * buf_h * 3 / 2;
     num_frames = MAX(bufsize / frame_size, MIN_FRAMES);
     bufsize = num_frames * frame_size;
 
-    y_offset = buf_w * buf_h + frame_offset / 2;
+    y_offset = buf_w * buf_h;
 
     fprintf(stderr, "CMEM: using %d frame buffers\n", num_frames);
 
@@ -78,10 +76,10 @@ cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
         uint8_t *p = frame_buf + i * frame_size;
         uint8_t *pp = phys + i * frame_size;
 
-        frames[i].data[0] = p + frame_offset;
-        frames[i].data[1] = p + y_offset;
-        frames[i].data[2] = p + y_offset + buf_w / 2;
-        frames[i].phys[0] = pp + frame_offset;
+        frames[i].virt[0] = p;
+        frames[i].virt[1] = p + y_offset;
+        frames[i].virt[2] = p + y_offset + buf_w / 2;
+        frames[i].phys[0] = pp;
         frames[i].phys[1] = pp + y_offset;
         frames[i].phys[2] = pp + y_offset + buf_w / 2;
         frames[i].linesize[0] = ff->width;

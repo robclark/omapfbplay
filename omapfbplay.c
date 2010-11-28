@@ -310,11 +310,21 @@ frame_format(int width, int height, struct frame_format *ff)
 }
 
 static void
-init_frames(void)
+init_frames(struct frame_format *ff)
 {
-    int i;
+    const struct pixfmt *pf = ofbp_get_pixfmt(ff->pixfmt);
+    int offsets[3];
+    int i, j;
+
+    ofbp_get_plane_offsets(offsets, pf, ff->disp_x, ff->disp_y,
+                           frames->linesize);
 
     for (i = 0; i < num_frames; i++) {
+        struct frame *f = frames + i;
+        for (j = 0; j < 3; j++) {
+            f->vdata[j] = f->virt[j] + offsets[j];
+            f->pdata[j] = f->phys[j] + offsets[j];
+        }
         frames[i].frame_num = i;
         frames[i].pic_num = -num_frames;
         frames[i].next = i + 1;
@@ -436,9 +446,9 @@ static void test_pattern(const struct frame *frames, int num_frames,
 
     for (k = 0; k < num_frames; k++) {
         const struct frame *f = frames + k;
-        uint8_t *y = f->data[p->plane[0]] + p->start[0];
-        uint8_t *u = f->data[p->plane[1]] + p->start[1];
-        uint8_t *v = f->data[p->plane[2]] + p->start[2];
+        uint8_t *y = f->vdata[p->plane[0]] + p->start[0];
+        uint8_t *u = f->vdata[p->plane[1]] + p->start[1];
+        uint8_t *v = f->vdata[p->plane[2]] + p->start[2];
 
         for (i = 0; i < ff->disp_h; i++)
             for (j = 0; j < ff->disp_w; j++)
@@ -510,7 +520,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
         }
     }
 
-    init_frames();
+    init_frames(&ff);
 
     if (display->enable(&ff, disp_flags, pixconv, &dp))
         return 1;
@@ -676,7 +686,7 @@ main(int argc, char **argv)
     if (!timer)
         error(1);
 
-    init_frames();
+    init_frames(&frame_fmt);
 
     if (display->enable(&frame_fmt, flags, pixconv, &dp))
         error(1);

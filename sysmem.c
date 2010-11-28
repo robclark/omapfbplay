@@ -38,13 +38,11 @@ sysmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
 {
     int buf_w = ff->width, buf_h = ff->height;
     struct frame *frames;
-    unsigned frame_offset;
     unsigned num_frames;
     unsigned frame_size;
     void *fbp;
     int i;
 
-    frame_offset = ff->width * ff->disp_y + ff->disp_x;
     frame_size = buf_w * buf_h * 3 / 2;
     num_frames = MAX(bufsize / frame_size, MIN_FRAMES);
     bufsize = num_frames * frame_size;
@@ -58,14 +56,14 @@ sysmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
     }
 
     frame_buf = fbp;
-    frames = malloc(num_frames * sizeof(*frames));
+    frames = calloc(num_frames, sizeof(*frames));
 
     for (i = 0; i < num_frames; i++) {
         uint8_t *p = frame_buf + i * frame_size;
 
-        frames[i].data[0] = p + frame_offset;
-        frames[i].data[1] = p + buf_w * buf_h + frame_offset / 2;
-        frames[i].data[2] = frames[i].data[1] + buf_w / 2;
+        frames[i].virt[0] = p;
+        frames[i].virt[1] = p + buf_w * buf_h;
+        frames[i].virt[2] = frames[i].virt[1] + buf_w / 2;
         frames[i].linesize[0] = ff->width;
         frames[i].linesize[1] = ff->width;
         frames[i].linesize[2] = ff->width;

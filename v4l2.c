@@ -71,7 +71,6 @@ struct v4l2_format sfmt;
 struct vid_buffer {
     struct v4l2_buffer buf;
     uint8_t *data[3];
-    unsigned size;
 };
 
 static struct frame *vid_frames;
@@ -118,7 +117,7 @@ static void free_buffers(struct vid_buffer *vb, int nbufs)
 
     for (i = 0; i < nbufs; i++)
         if (vb[i].data[0])
-            munmap(vb[i].data[0], vb[i].size);
+            munmap(vb[i].data[0], vb[i].buf.length);
 
     free(vb);
 }
@@ -146,24 +145,26 @@ static struct vid_buffer *alloc_buffers(struct v4l2_pix_format *fmt,
 
     for (i = 0; i < req.count; i++) {
         struct v4l2_buffer *buf = &vb[i].buf;
+        uint8_t *data;
+
         buf->index  = i;
         buf->type   = V4L2_BUF_TYPE_VIDEO_OUTPUT;
         buf->memory = V4L2_MEMORY_MMAP;
 
         xioctl(vid_fd, VIDIOC_QUERYBUF, buf);
 
-        vb[i].size    = buf->length;
-        vb[i].data[0] = mmap(NULL, buf->length, PROT_READ|PROT_WRITE,
-                             MAP_SHARED, vid_fd, buf->m.offset);
+        data = mmap(NULL, buf->length, PROT_READ|PROT_WRITE,
+                    MAP_SHARED, vid_fd, buf->m.offset);
 
-        if (vb[i].data[0] == MAP_FAILED) {
-            vb[i].data[0] = NULL;
+        if (data == MAP_FAILED) {
             perror("mmap");
             goto err;
         }
 
-        for (j = 1; j <= 2; j++)
-            vb[i].data[j] = offs[j]? vb[i].data[0] + offs[j] : NULL;
+        memset(data, 0, buf->length);
+
+        for (j = 0; j < 3; j++)
+            vb[i].data[j] = data + offs[j];
     }
 
     *num_bufs = req.count;
@@ -327,7 +328,7 @@ static void v4l2_prepare(struct frame *f)
         struct v4l2_buffer buf;
         dqbuf(&buf);
         cur_buf = &vid_buffers[buf.index];
-        pixconv->convert(cur_buf->data, f->data, NULL, NULL);
+        pixconv->convert(cur_buf->data, f->vdata, NULL, NULL);
     }
 }
 
@@ -385,13 +386,13 @@ static int v4l2_alloc(struct frame_format *ff, unsigned max_mem,
     if (!vb)
         return -1;
 
-    frames = malloc(nframes * sizeof(*frames));
+    frames = calloc(nframes, sizeof(*frames));
     if (!frames)
         goto err;
 
     for (i = 0; i < nframes; i++) {
         for (j = 0; j < 3; j++) {
-            frames[i].data[j] = vb[i].data[j];
+            frames[i].virt[j]     = vb[i].data[j];
             frames[i].linesize[j] = stride[j];
         }
     }

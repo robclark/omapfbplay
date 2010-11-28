@@ -67,6 +67,7 @@ static const unsigned (*find_format(const unsigned (*tab)[3],
 static int vid_fd = -1;
 static const struct pixconv *pixconv;
 struct v4l2_format sfmt;
+struct v4l2_crop crop;
 
 struct vid_buffer {
     struct v4l2_buffer buf;
@@ -252,11 +253,10 @@ static int v4l2_open(const char *name, struct frame_format *df,
     }
 
     sfmt.type                 = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-    sfmt.fmt.pix.width        = ff->disp_w;
-    sfmt.fmt.pix.height       = ff->disp_h;
+    sfmt.fmt.pix.width        = ff->width;
+    sfmt.fmt.pix.height       = ff->height;
     sfmt.fmt.pix.pixelformat  = pixfmt[0][1];
     sfmt.fmt.pix.field        = V4L2_FIELD_NONE;
-    sfmt.fmt.pix.bytesperline = ALIGN(ff->disp_w, 32);
 
     xioctl(vid_fd, VIDIOC_S_FMT, &sfmt);
 
@@ -298,6 +298,19 @@ static int v4l2_enable(struct frame_format *ff, unsigned flags,
         xioctl(vid_fd, VIDIOC_QBUF, &vid_buffers[f->frame_num].buf);
     }
 
+    fprintf(stderr, "V4L2: crop %dx%d from %dx%d\n",
+            ff->disp_w, ff->disp_h, ff->width, ff->height);
+
+    crop.type     = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+    crop.c.left   = 0;
+    crop.c.top    = 0;
+    crop.c.width  = ff->disp_w;
+    crop.c.height = ff->disp_h;
+    xioctl(vid_fd, VIDIOC_S_CROP, &crop);
+
+    fprintf(stderr, "V4L2: overlay %dx%d @ %d,%d\n",
+            df->disp_w, df->disp_h, df->disp_x, df->disp_y);
+
     fmt.type                 = V4L2_BUF_TYPE_VIDEO_OVERLAY;
     fmt.fmt.win.w.left       = df->disp_x;
     fmt.fmt.win.w.top        = df->disp_y;
@@ -329,6 +342,10 @@ static void v4l2_prepare(struct frame *f)
         dqbuf(&buf);
         cur_buf = &vid_buffers[buf.index];
         pixconv->convert(cur_buf->data, f->vdata, NULL, NULL);
+    } else if (f->x != crop.c.left || f->y != crop.c.top) {
+        crop.c.left   = f->x;
+        crop.c.top    = f->y;
+        ioctl(vid_fd, VIDIOC_S_CROP, &crop);
     }
 }
 

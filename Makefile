@@ -32,13 +32,16 @@ DRV-$(arm)              += neon_pixconv.o
 DRV-$(SDMA)             += sdma.o
 DRV-$(XV)               += xv.o
 DRV-$(V4L2)             += v4l2.o
+DRV-$(DCE)              += dce.o
 
 CFLAGS-$(CMEM)          += $(CMEM_CFLAGS)
 CFLAGS-$(SDMA)          += $(SDMA_CFLAGS)
+CFLAGS-$(DCE)           += $(DCE_CFLAGS)
 
 LDLIBS-$(CMEM)          += $(CMEM_LIBS)
 LDLIBS-$(SDMA)          += $(SDMA_LIBS)
 LDLIBS-$(XV)            += -lXv -lXext -lX11
+LDLIBS-$(DCE)           += -ldce -lmemmgr
 
 CFLAGS += $(CFLAGS-y)
 LDLIBS += $(LDLIBS-y)

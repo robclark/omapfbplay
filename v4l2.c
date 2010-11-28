@@ -94,7 +94,7 @@ static int get_plane_fmt(struct v4l2_pix_format *fmt,
 
     switch (fmt->pixelformat) {
     case V4L2_PIX_FMT_YUV420:
-        offs[1]   = fmt->width * fmt->bytesperline;
+        offs[1]   = fmt->height * fmt->bytesperline;
         offs[2]   = offs[1] + fmt->height * fmt->bytesperline / 4;
         stride[1] = stride[2] = fmt->bytesperline / 2;
         return 0;

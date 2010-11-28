@@ -153,12 +153,12 @@ yuv420_to_nv12:
         pld             [r3, #256]
         vld1.8          {q0},     [r2,:128]!
         vld1.8          {q1},     [r3,:128]!
-        vst2.8          {q0-q1},  [r0,:256]!
+        vst2.8          {q0-q1},  [r11,:256]!
         subs            r9,  r9,  #16
         bgt             2b
         add             r2,  r2,  r7
         add             r3,  r3,  r7
-        add             r0,  r0,  r8
+        add             r11, r11, r8
         subs            r5,  r5,  #2
         bgt             1b
 
@@ -192,7 +192,7 @@ neon_open:
         .func   neon_convert
 neon_convert:
         push            {r4-r11,lr}
-        ldr             r0,  [r0]
+        ldm             r0,  {r0, r11}
         mov32           r4,  conv_params
         ldm             r1,  {r1-r3}
         ldr             pc,  [r4, #20]

@@ -665,7 +665,8 @@ main(int argc, char **argv)
 
     while (!stop && !av_read_frame(afc, &pk)) {
         if (pk.stream_index == st->index)
-            codec->decode(&pk);
+            if (codec->decode(&pk))
+                stop = 1;
         av_free_packet(&pk);
     }
 

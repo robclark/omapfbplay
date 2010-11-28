@@ -668,6 +668,11 @@ main(int argc, char **argv)
     if (!memman)
         error(1);
 
+    if ((codec->flags & OFB_PHYS_MEM) && !(memman->flags & OFB_PHYS_MEM)) {
+        fprintf(stderr, "Incompatible decoder/memman\n");
+        error(1);
+    }
+
     if (memman->alloc_frames(&frame_fmt, bufsize, &frames, &num_frames))
         error(1);
 

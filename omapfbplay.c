@@ -178,8 +178,6 @@ static int stop;
 
 static int noaspect;
 
-#define EDGE_WIDTH 32
-
 struct frame *ofbp_get_frame(void)
 {
     struct frame *f = frames + free_tail;
@@ -303,10 +301,10 @@ void ofbp_post_frame(struct frame *f)
 static void
 frame_format(int width, int height, struct frame_format *ff)
 {
-    ff->width  = ALIGN(width,  32) + EDGE_WIDTH * 2;
-    ff->height = ALIGN(height, 32) + EDGE_WIDTH * 2;
-    ff->disp_x = EDGE_WIDTH;
-    ff->disp_y = EDGE_WIDTH;
+    ff->width  = ALIGN(width,  32);
+    ff->height = ALIGN(height, 32);
+    ff->disp_x = 0;
+    ff->disp_y = 0;
     ff->disp_w = width;
     ff->disp_h = height;
 }

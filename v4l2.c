@@ -433,6 +433,7 @@ static void v4l2_free(struct frame *frames, unsigned num_frames)
 
 static const struct memman v4l2_memman = {
     .name         = "v4l2",
+    .flags        = OFB_PHYS_MEM,
     .alloc_frames = v4l2_alloc,
     .free_frames  = v4l2_free,
 };

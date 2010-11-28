@@ -35,6 +35,7 @@
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavutil/log.h>
 
 #include "display.h"
 #include "timer.h"
@@ -587,6 +588,7 @@ main(int argc, char **argv)
     if (argc < 1)
         return 1;
 
+    av_log_set_flags(AV_LOG_SKIP_REPEATED);
     av_register_all();
     avcodec_register_all();
 

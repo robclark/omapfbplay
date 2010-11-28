@@ -365,6 +365,51 @@ static void set_scale(struct frame_format *df, const struct frame_format *ff,
 
 }
 
+static const struct pixfmt pixfmt_tab[] = {
+    {
+        .fmt   = PIX_FMT_YUV420P,
+        .plane = { 0, 1, 2 },
+        .inc   = { 1, 1, 1 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 1, 1 },
+    },
+    {
+        .fmt   = PIX_FMT_YUYV422,
+        .plane = { 0, 0, 0 },
+        .start = { 0, 1, 3 },
+        .inc   = { 2, 4, 4 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 0, 0 },
+    },
+    {
+        .fmt   = PIX_FMT_NV12,
+        .plane = { 0, 1, 1 },
+        .start = { 0, 0, 1 },
+        .inc   = { 1, 2, 2 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 1, 1 },
+    },
+};
+
+const struct pixfmt *ofbp_get_pixfmt(enum PixelFormat fmt)
+{
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(pixfmt_tab); i++)
+        if (pixfmt_tab[i].fmt == fmt)
+            return &pixfmt_tab[i];
+
+    return NULL;
+}
+
+void ofbp_get_plane_offsets(int offs[3], const struct pixfmt *p,
+                            int x, int y, const int stride[3])
+{
+    int i;
+    for (i = 0; i < 3; i++)
+        offs[i] = (y>>p->vsub[i]) * stride[i] + (x>>p->hsub[i]) * p->inc[i];
+}
+
 static void
 sigint(int s)
 {
@@ -372,59 +417,37 @@ sigint(int s)
     sem_post(&disp_sem);
 }
 
-#define TPVAL(i, sub) (i & (0x100 >> sub)? 255 - (i << sub) : ( i<< sub))
+#define TPVAL(i, sub) (i & (0x100 >> sub)? 255 - (i << sub) : (i << sub))
 
 static void test_pattern(const struct frame *frames, int num_frames,
                          const struct frame_format *ff)
 {
-    int yplane, uplane, vplane;
-    int ystart, ustart, vstart;
-    int yinc, uinc, vinc;
+    const struct pixfmt *p = ofbp_get_pixfmt(ff->pixfmt);
     int hsub, vsub;
     int i, j, k;
 
-    switch (ff->pixfmt) {
-    case PIX_FMT_YUV420P:
-        yplane = 0; ystart = 0; yinc = 1;
-        uplane = 1; ustart = 0; uinc = 1;
-        vplane = 2; vstart = 0; vinc = 1;
-        hsub = vsub = 1;
-        break;
-    case PIX_FMT_YUYV422:
-        yplane = uplane = vplane = 0;
-        ystart = 0; yinc = 2;
-        ustart = 1; uinc = 4;
-        vstart = 3; vinc = 4;
-        hsub = 1;
-        vsub = 0;
-        break;
-    case PIX_FMT_NV12:
-        yplane = 0; ystart = 0; yinc = 1;
-        uplane = vplane = 1;
-        ustart = 0;
-        vstart = 1;
-        uinc = vinc = 2;
-        hsub = vsub = 1;
-        break;
-    default:
+    if (!p) {
         fprintf(stderr, "Unknown pixel format %d\n", ff->pixfmt);
         return;
     }
 
+    hsub = p->hsub[1];
+    vsub = p->vsub[1];
+
     for (k = 0; k < num_frames; k++) {
         const struct frame *f = frames + k;
-        uint8_t *y = f->data[yplane] + ystart;
-        uint8_t *u = f->data[uplane] + ustart;
-        uint8_t *v = f->data[vplane] + vstart;
+        uint8_t *y = f->data[p->plane[0]] + p->start[0];
+        uint8_t *u = f->data[p->plane[1]] + p->start[1];
+        uint8_t *v = f->data[p->plane[2]] + p->start[2];
 
         for (i = 0; i < ff->disp_h; i++)
             for (j = 0; j < ff->disp_w; j++)
-                y[i*f->linesize[yplane] + j*yinc] = 128;
+                y[i*f->linesize[p->plane[0]] + j*p->inc[0]] = 128;
 
         for (i = 0; i < ff->disp_h >> vsub; i++) {
             for (j = 0; j < ff->disp_w >> hsub; j++) {
-                u[i*f->linesize[uplane] + j*uinc] = TPVAL(i, vsub);
-                v[i*f->linesize[vplane] + j*vinc] = TPVAL(j, hsub);
+                u[i*f->linesize[p->plane[1]] + j*p->inc[1]] = TPVAL(i, vsub);
+                v[i*f->linesize[p->plane[2]] + j*p->inc[2]] = TPVAL(j, hsub);
             }
         }
     }

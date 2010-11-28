@@ -29,6 +29,8 @@
 #define MIN(a, b) ((a) < (b)? (a): (b))
 #define MAX(a, b) ((a) > (b)? (a): (b))
 
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
+
 #define TN(type, name) ofb_##type##_##name
 #define DRIVER(type, name)                                              \
     static const struct type TN(type, name);                            \

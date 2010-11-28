@@ -47,10 +47,23 @@ struct frame {
     int refs;
 };
 
+struct pixfmt {
+    enum PixelFormat fmt;
+    int plane[3];
+    int start[3];
+    int inc[3];
+    int hsub[3];
+    int vsub[3];
+};
+
 #define MIN_FRAMES 2
 
 struct frame *ofbp_get_frame(void);
 void ofbp_put_frame(struct frame *f);
 void ofbp_post_frame(struct frame *f);
+
+const struct pixfmt *ofbp_get_pixfmt(enum PixelFormat fmt);
+void ofbp_get_plane_offsets(int offs[3], const struct pixfmt *p,
+                            int x, int y, const int stride[3]);
 
 #endif

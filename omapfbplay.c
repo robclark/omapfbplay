@@ -437,8 +437,8 @@ speed_test(const char *drv, const char *mem, const char *conv,
 {
     const struct pixconv *pixconv = NULL;
     const struct memman *memman = NULL;
-    struct frame_format dp;
-    struct frame_format ff;
+    struct frame_format dp = { 0 };
+    struct frame_format ff = { 0 };
     struct timespec t1, t2;
     unsigned w, h = 0;
     unsigned n = 1000;

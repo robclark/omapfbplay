@@ -42,6 +42,7 @@ static const unsigned format_map[][3] = {
     { PIX_FMT_YUV420P, V4L2_PIX_FMT_YUYV,   PIX_FMT_YUYV422 },
     { PIX_FMT_YUV420P, V4L2_PIX_FMT_NV12,   PIX_FMT_NV12    },
     { PIX_FMT_YUV420P, V4L2_PIX_FMT_YUV420, PIX_FMT_YUV420P },
+    { PIX_FMT_NV12,    V4L2_PIX_FMT_NV12,   PIX_FMT_NV12    },
     { PIX_FMT_NONE,    0,                   PIX_FMT_NONE    },
 };
 

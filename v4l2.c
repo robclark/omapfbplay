@@ -126,15 +126,11 @@ static struct vid_buffer *alloc_buffers(struct v4l2_pix_format *fmt,
                                         int *num_bufs)
 {
     struct v4l2_requestbuffers req;
-    struct vid_buffer *vb;
+    struct vid_buffer *vb = NULL;
     int offs[3], stride[3];
     int i, j;
 
     if (get_plane_fmt(fmt, offs, stride))
-        return NULL;
-
-    vb = malloc(*num_bufs * sizeof(*vb));
-    if (!vb)
         return NULL;
 
     req.count  = *num_bufs;
@@ -142,6 +138,14 @@ static struct vid_buffer *alloc_buffers(struct v4l2_pix_format *fmt,
     req.memory = V4L2_MEMORY_MMAP;
 
     xioctl(vid_fd, VIDIOC_REQBUFS, &req);
+
+    if (req.count != *num_bufs)
+        fprintf(stderr, "V4L2: requested %d buffers, got %d\n",
+                *num_bufs, req.count);
+
+    vb = malloc(req.count * sizeof(*vb));
+    if (!vb)
+        return NULL;
 
     for (i = 0; i < req.count; i++) {
         struct v4l2_buffer *buf = &vb[i].buf;
@@ -170,7 +174,8 @@ static struct vid_buffer *alloc_buffers(struct v4l2_pix_format *fmt,
     *num_bufs = req.count;
     return vb;
 err:
-    free_buffers(vb, req.count);
+    if (vb)
+        free_buffers(vb, req.count);
     return NULL;
 }
 

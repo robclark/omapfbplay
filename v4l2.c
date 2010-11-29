@@ -59,8 +59,7 @@ static const unsigned (*find_format(const unsigned (*tab)[3],
     return orig;
 }
 
-#define NEEDED_CAPS \
-    (V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_VIDEO_OVERLAY | V4L2_CAP_STREAMING)
+#define NEEDED_CAPS (V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING)
 
 #define NUM_BUFFERS 2
 

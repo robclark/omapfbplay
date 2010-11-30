@@ -252,6 +252,9 @@ static int dce_decode(AVPacket *p)
 
     memcpy(input_buf, buf, bufsize);
 
+    if (bsf)
+        av_free(buf);
+
     f = ofbp_get_frame();
 
     if (!f->phys[0]) {

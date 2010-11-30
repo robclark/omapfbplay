@@ -55,7 +55,6 @@ static int vid_fd = -1;
 static int fb_page_flip;
 static int fb_page;
 static const struct pixconv *pixconv;
-static const struct pixfmt *pixfmt;
 
 #define xioctl(fd, req, param) do {             \
         if (ioctl(fd, req, param) == -1)        \
@@ -128,8 +127,6 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
 
     frame_size = vxres * vyres * 2;
     mem_size = vid_minfo.size;
-
-    pixfmt = ofbp_get_pixfmt(ff->pixfmt);
 
     if (!mem_size) {
         struct omapfb_mem_info mi = vid_minfo;

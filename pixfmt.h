@@ -22,38 +22,22 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFBP_FRAME_H
-#define OFBP_FRAME_H
+#ifndef OFBP_PIXFMT_H
+#define OFBP_PIXFMT_H
 
-#include <stdint.h>
 #include <libavutil/pixfmt.h>
 
-struct frame_format {
-    unsigned width, height;
-    unsigned disp_x, disp_y;
-    unsigned disp_w, disp_h;
-    unsigned y_stride, uv_stride;
-    enum PixelFormat pixfmt;
+struct pixfmt {
+    enum PixelFormat fmt;
+    int plane[3];
+    int start[3];
+    int inc[3];
+    int hsub[3];
+    int vsub[3];
 };
 
-struct frame {
-    uint8_t *virt[3];
-    uint8_t *phys[3];
-    uint8_t *vdata[3];
-    uint8_t *pdata[3];
-    int linesize[3];
-    int x, y;
-    int frame_num;
-    int pic_num;
-    int next;
-    int prev;
-    int refs;
-};
-
-#define MIN_FRAMES 2
-
-struct frame *ofbp_get_frame(void);
-void ofbp_put_frame(struct frame *f);
-void ofbp_post_frame(struct frame *f);
+const struct pixfmt *ofbp_get_pixfmt(enum PixelFormat fmt);
+void ofbp_get_plane_offsets(int offs[3], const struct pixfmt *p,
+                            int x, int y, const int stride[3]);
 
 #endif

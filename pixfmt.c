@@ -22,38 +22,52 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFBP_FRAME_H
-#define OFBP_FRAME_H
+#include <stddef.h>
 
-#include <stdint.h>
-#include <libavutil/pixfmt.h>
+#include "pixfmt.h"
+#include "util.h"
 
-struct frame_format {
-    unsigned width, height;
-    unsigned disp_x, disp_y;
-    unsigned disp_w, disp_h;
-    unsigned y_stride, uv_stride;
-    enum PixelFormat pixfmt;
+static const struct pixfmt pixfmt_tab[] = {
+    {
+        .fmt   = PIX_FMT_YUV420P,
+        .plane = { 0, 1, 2 },
+        .inc   = { 1, 1, 1 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 1, 1 },
+    },
+    {
+        .fmt   = PIX_FMT_YUYV422,
+        .plane = { 0, 0, 0 },
+        .start = { 0, 1, 3 },
+        .inc   = { 2, 4, 4 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 0, 0 },
+    },
+    {
+        .fmt   = PIX_FMT_NV12,
+        .plane = { 0, 1, 1 },
+        .start = { 0, 0, 1 },
+        .inc   = { 1, 2, 2 },
+        .hsub  = { 0, 1, 1 },
+        .vsub  = { 0, 1, 1 },
+    },
 };
 
-struct frame {
-    uint8_t *virt[3];
-    uint8_t *phys[3];
-    uint8_t *vdata[3];
-    uint8_t *pdata[3];
-    int linesize[3];
-    int x, y;
-    int frame_num;
-    int pic_num;
-    int next;
-    int prev;
-    int refs;
-};
+const struct pixfmt *ofbp_get_pixfmt(enum PixelFormat fmt)
+{
+    int i;
 
-#define MIN_FRAMES 2
+    for (i = 0; i < ARRAY_SIZE(pixfmt_tab); i++)
+        if (pixfmt_tab[i].fmt == fmt)
+            return &pixfmt_tab[i];
 
-struct frame *ofbp_get_frame(void);
-void ofbp_put_frame(struct frame *f);
-void ofbp_post_frame(struct frame *f);
+    return NULL;
+}
 
-#endif
+void ofbp_get_plane_offsets(int offs[3], const struct pixfmt *p,
+                            int x, int y, const int stride[3])
+{
+    int i;
+    for (i = 0; i < 3; i++)
+        offs[i] = (y>>p->vsub[i]) * stride[i] + (x>>p->hsub[i]) * p->inc[i];
+}

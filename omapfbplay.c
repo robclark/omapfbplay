@@ -43,6 +43,7 @@
 #include "memman.h"
 #include "codec.h"
 #include "frame.h"
+#include "pixfmt.h"
 #include "pixconv.h"
 
 #define BUFFER_SIZE (64*1024*1024)
@@ -373,51 +374,6 @@ static void set_scale(struct frame_format *df, const struct frame_format *ff,
         df->disp_h = ff->disp_h;
     }
 
-}
-
-static const struct pixfmt pixfmt_tab[] = {
-    {
-        .fmt   = PIX_FMT_YUV420P,
-        .plane = { 0, 1, 2 },
-        .inc   = { 1, 1, 1 },
-        .hsub  = { 0, 1, 1 },
-        .vsub  = { 0, 1, 1 },
-    },
-    {
-        .fmt   = PIX_FMT_YUYV422,
-        .plane = { 0, 0, 0 },
-        .start = { 0, 1, 3 },
-        .inc   = { 2, 4, 4 },
-        .hsub  = { 0, 1, 1 },
-        .vsub  = { 0, 0, 0 },
-    },
-    {
-        .fmt   = PIX_FMT_NV12,
-        .plane = { 0, 1, 1 },
-        .start = { 0, 0, 1 },
-        .inc   = { 1, 2, 2 },
-        .hsub  = { 0, 1, 1 },
-        .vsub  = { 0, 1, 1 },
-    },
-};
-
-const struct pixfmt *ofbp_get_pixfmt(enum PixelFormat fmt)
-{
-    int i;
-
-    for (i = 0; i < ARRAY_SIZE(pixfmt_tab); i++)
-        if (pixfmt_tab[i].fmt == fmt)
-            return &pixfmt_tab[i];
-
-    return NULL;
-}
-
-void ofbp_get_plane_offsets(int offs[3], const struct pixfmt *p,
-                            int x, int y, const int stride[3])
-{
-    int i;
-    for (i = 0; i < 3; i++)
-        offs[i] = (y>>p->vsub[i]) * stride[i] + (x>>p->hsub[i]) * p->inc[i];
 }
 
 static void

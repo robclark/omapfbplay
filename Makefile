@@ -46,7 +46,7 @@ LDLIBS-$(DCE)           += -ldce -lmemmgr
 CFLAGS += $(CFLAGS-y)
 LDLIBS += $(LDLIBS-y)
 
-CORE = omapfbplay.o time.o
+CORE = omapfbplay.o pixfmt.o time.o
 DRV  = magic-head.o $(DRV-y) magic-tail.o
 OBJ  = $(addprefix $(O),$(CORE) $(DRV))
 

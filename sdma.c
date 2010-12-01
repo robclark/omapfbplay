@@ -139,7 +139,7 @@ static void sdma_close(void)
 
 DRIVER(pixconv, sdma) = {
     .name    = "sdma",
-    .flags   = OFB_PHYS_MEM,
+    .flags   = OFBP_PHYS_MEM,
     .open    = sdma_open,
     .convert = sdma_convert,
     .finish  = sdma_finish,

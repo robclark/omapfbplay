@@ -292,7 +292,7 @@ static int dce_decode(AVPacket *p)
 
 CODEC(avcodec) = {
     .name   = "dce",
-    .flags  = OFB_PHYS_MEM,
+    .flags  = OFBP_PHYS_MEM,
     .open   = dce_open,
     .decode = dce_decode,
     .close  = dce_close,

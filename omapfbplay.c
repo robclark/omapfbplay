@@ -118,7 +118,7 @@ timer_open(const char *dname)
     const struct timer *tmr = NULL;
     const char *param = NULL;
 
-    tmr = find_driver(dname, &param, ofb_timer_start);
+    tmr = find_driver(dname, &param, ofbp_timer_start);
     if (tmr && !tmr->open(param))
         return tmr;
 
@@ -134,7 +134,7 @@ display_open(const char *dname, struct frame_format *dp,
     const struct display *disp = NULL;
     const char *param = NULL;
 
-    disp = find_driver(dname, &param, ofb_display_start);
+    disp = find_driver(dname, &param, ofbp_display_start);
     if (disp && !disp->open(param, dp, ff))
         return disp;
 
@@ -147,7 +147,7 @@ static const struct pixconv *
 pixconv_open(const char *name, const struct frame_format *ffmt,
              const struct frame_format *dfmt)
 {
-    const struct pixconv **start = ofb_pixconv_start;
+    const struct pixconv **start = ofbp_pixconv_start;
     const struct pixconv *conv;
 
     do {
@@ -338,8 +338,8 @@ init_frames(struct frame_format *ff)
     sem_init(&free_sem, 0, num_frames - 1);
 }
 
-void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
-               unsigned dw, unsigned dh)
+void ofbp_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
+                unsigned dw, unsigned dh)
 {
     *x = 0;
     *y = 0;
@@ -361,12 +361,12 @@ void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
 static void set_scale(struct frame_format *df, const struct frame_format *ff,
                       int flags)
 {
-    if ((flags & OFB_FULLSCREEN) ||
+    if ((flags & OFBP_FULLSCREEN) ||
         ff->disp_w > df->width || ff->disp_h > df->height) {
         df->disp_w = ff->disp_w;
         df->disp_h = ff->disp_h;
-        ofb_scale(&df->disp_x, &df->disp_y, &df->disp_w, &df->disp_h,
-                  df->width, df->height);
+        ofbp_scale(&df->disp_x, &df->disp_y, &df->disp_w, &df->disp_h,
+                   df->width, df->height);
     } else {
         df->disp_x = df->width  / 2 - ff->disp_w / 2;
         df->disp_y = df->height / 2 - ff->disp_h / 2;
@@ -460,7 +460,7 @@ speed_test(const char *drv, const char *mem, const char *conv,
     }
 
     if (!memman)
-        memman = find_driver(mem, NULL, ofb_memman_start);
+        memman = find_driver(mem, NULL, ofbp_memman_start);
 
     if (memman->alloc_frames(&ff, 0, &frames, &num_frames))
         return 1;
@@ -469,8 +469,8 @@ speed_test(const char *drv, const char *mem, const char *conv,
         pixconv = pixconv_open(conv, &ff, &dp);
         if (!pixconv)
             return 1;
-        if ((pixconv->flags & OFB_PHYS_MEM) &&
-            !(memman->flags & display->flags & OFB_PHYS_MEM)) {
+        if ((pixconv->flags & OFBP_PHYS_MEM) &&
+            !(memman->flags & display->flags & OFBP_PHYS_MEM)) {
             fprintf(stderr, "Incompatible display/memman/pixconv\n");
             return 1;
         }
@@ -520,7 +520,7 @@ main(int argc, char **argv)
     struct frame_format dp;
     int bufsize = BUFFER_SIZE;
     pthread_t dispt;
-    unsigned flags = OFB_DOUBLE_BUF;
+    unsigned flags = OFBP_DOUBLE_BUF;
     char *test_param = NULL;
     char *dispdrv = NULL;
     char *timer_drv = NULL;
@@ -543,7 +543,7 @@ main(int argc, char **argv)
         case 'F':
             noaspect = 1;
         case 'f':
-            flags |= OFB_FULLSCREEN;
+            flags |= OFBP_FULLSCREEN;
             break;
         case 'M':
             memman_drv = optarg;
@@ -552,7 +552,7 @@ main(int argc, char **argv)
             pixconv_drv = optarg;
             break;
         case 's':
-            flags &= ~OFB_DOUBLE_BUF;
+            flags &= ~OFBP_DOUBLE_BUF;
             break;
         case 't':
             test_param = optarg;
@@ -587,7 +587,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    codec = find_driver(codec_drv, NULL, ofb_codec_start);
+    codec = find_driver(codec_drv, NULL, ofbp_codec_start);
     if (!codec) {
         fprintf(stderr, "Decoder '%s' not found\n", codec_drv);
         error(1);
@@ -613,18 +613,18 @@ main(int argc, char **argv)
     if (display->memman) {
         if (dp.pixfmt == frame_fmt.pixfmt) {
             memman = display->memman;
-        } else if (display->flags & OFB_PRIV_MEM) {
+        } else if (display->flags & OFBP_PRIV_MEM) {
             fprintf(stderr, "Decoder/display pixel format mismatch\n");
             error(1);
         }
     }
 
     if (!memman)
-        memman = find_driver(memman_drv, NULL, ofb_memman_start);
+        memman = find_driver(memman_drv, NULL, ofbp_memman_start);
     if (!memman)
         error(1);
 
-    if ((codec->flags & OFB_PHYS_MEM) && !(memman->flags & OFB_PHYS_MEM)) {
+    if ((codec->flags & OFBP_PHYS_MEM) && !(memman->flags & OFBP_PHYS_MEM)) {
         fprintf(stderr, "Incompatible decoder/memman\n");
         error(1);
     }
@@ -636,8 +636,8 @@ main(int argc, char **argv)
         pixconv = pixconv_open(pixconv_drv, &frame_fmt, &dp);
         if (!pixconv)
             error(1);
-        if ((pixconv->flags & OFB_PHYS_MEM) &&
-            !(memman->flags & display->flags & OFB_PHYS_MEM)) {
+        if ((pixconv->flags & OFBP_PHYS_MEM) &&
+            !(memman->flags & display->flags & OFBP_PHYS_MEM)) {
             fprintf(stderr, "Incompatible display/memman/pixconv\n");
             error(1);
         }

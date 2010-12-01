@@ -247,7 +247,7 @@ static int xv_enable(struct frame_format *ff, unsigned flags,
 
     XMapWindow(dpy, win);
 
-    if (flags & OFB_FULLSCREEN)
+    if (flags & OFBP_FULLSCREEN)
         set_fullscreen();
 
     return 0;
@@ -268,7 +268,7 @@ static void xv_prepare(struct frame *f)
         XGetWindowAttributes(dpy, win, &xwa);
         out_w = ffmt.disp_w;
         out_h = ffmt.disp_h;
-        ofb_scale(&out_x, &out_y, &out_w, &out_h, xwa.width, xwa.height);
+        ofbp_scale(&out_x, &out_y, &out_w, &out_h, xwa.width, xwa.height);
         XClearWindow(dpy, win);
     }
 }
@@ -313,7 +313,7 @@ const struct memman xv_mem = {
 
 DISPLAY(xv) = {
     .name  = "xv",
-    .flags = OFB_FULLSCREEN | OFB_PRIV_MEM,
+    .flags = OFBP_FULLSCREEN | OFBP_PRIV_MEM,
     .open  = xv_open,
     .enable  = xv_enable,
     .prepare = xv_prepare,

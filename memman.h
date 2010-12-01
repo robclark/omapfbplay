@@ -22,8 +22,8 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef OFB_MEM_H
-#define OFB_MEM_H
+#ifndef OFBP_MEM_H
+#define OFBP_MEM_H
 
 #include "frame.h"
 
@@ -35,6 +35,6 @@ struct memman {
     void (*free_frames)(struct frame *frames, unsigned nf);
 };
 
-extern const struct memman *ofb_memman_start[];
+extern const struct memman *ofbp_memman_start[];
 
-#endif /* OFB_MEM_H */
+#endif /* OFBP_MEM_H */

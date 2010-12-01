@@ -22,8 +22,8 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_TIMER_H
-#define OFB_TIMER_H
+#ifndef OFBP_TIMER_H
+#define OFBP_TIMER_H
 
 #include <time.h>
 
@@ -38,7 +38,7 @@ struct timer {
     int (*close)(void);
 };
 
-extern const struct timer *ofb_timer_start[];
+extern const struct timer *ofbp_timer_start[];
 
 #define TIMER(name) DRIVER(timer, name)
 
@@ -48,4 +48,4 @@ void ts_add_ns(struct timespec *ts, unsigned nsec);
 void ts_add(struct timespec *ts, const struct timespec *td);
 void ts_sub(struct timespec *ts, const struct timespec *td);
 
-#endif /* OFB_TIMER_H */
+#endif /* OFBP_TIMER_H */

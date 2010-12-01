@@ -23,7 +23,7 @@
  */
 
         .macro  end_sec name
-        .section .ofb_\name, "a"
+        .section .ofbp_\name, "a"
         .int            0, 0
         .endm
 

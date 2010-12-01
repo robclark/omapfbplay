@@ -157,7 +157,7 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
     fb_pages[0].buf = fbmem;
     fb_pages[0].phys = (uint8_t *)fsi.smem_start;
 
-    if (flags & OFB_DOUBLE_BUF && mem_size >= frame_size * 2) {
+    if (flags & OFBP_DOUBLE_BUF && mem_size >= frame_size * 2) {
         vid_sinfo.yres_virtual = vyres * 2;
         fb_pages[1].x = 0;
         fb_pages[1].y = vyres;
@@ -177,7 +177,7 @@ omapfb_enable(struct frame_format *ff, unsigned flags,
 
     xioctl(vid_fd, OMAPFB_SETUP_PLANE, &vid_pinfo);
 
-    if (flags & OFB_FULLSCREEN ||
+    if (flags & OFBP_FULLSCREEN ||
         (vid_pinfo.pos_x <= gfx_pinfo.pos_x  &&
          vid_pinfo.pos_y >= gfx_pinfo.pos_y  &&
          vid_pinfo.pos_x + vid_pinfo.out_width  >=
@@ -242,7 +242,7 @@ static void omapfb_close(void)
 
 DISPLAY(omapfb) = {
     .name  = "omapfb",
-    .flags = OFB_FULLSCREEN | OFB_DOUBLE_BUF | OFB_PHYS_MEM,
+    .flags = OFBP_FULLSCREEN | OFBP_DOUBLE_BUF | OFBP_PHYS_MEM,
     .open  = omapfb_open,
     .enable  = omapfb_enable,
     .prepare = omapfb_prepare,

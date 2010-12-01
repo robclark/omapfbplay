@@ -210,15 +210,15 @@ conv_params:
 
         .section        .rodata
 .Lname: .asciz          "neon"
-ofb_pixconv_neon:
+ofbp_pixconv_neon:
         .word           .Lname
         .word           0               @ flags
         .word           neon_open
         .word           neon_convert
         .word           neon_nop        @ finish
         .word           neon_nop        @ close
-        .size           ofb_pixconv_neon, . - ofb_pixconv_neon
+        .size           ofbp_pixconv_neon, . - ofbp_pixconv_neon
 
-        .section        .ofb_pixconv, "a"
-ofb_pixconv_neon_p:
-        .word           ofb_pixconv_neon
+        .section        .ofbp_pixconv, "a"
+ofbp_pixconv_neon_p:
+        .word           ofbp_pixconv_neon

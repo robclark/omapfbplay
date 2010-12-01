@@ -22,8 +22,8 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_DISPLAY_H
-#define OFB_DISPLAY_H
+#ifndef OFBP_DISPLAY_H
+#define OFBP_DISPLAY_H
 
 #include <stdint.h>
 
@@ -44,11 +44,11 @@ struct display {
     const struct memman *memman;
 };
 
-extern const struct display *ofb_display_start[];
+extern const struct display *ofbp_display_start[];
 
 #define DISPLAY(name) DRIVER(display, name)
 
-void ofb_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
-               unsigned dw, unsigned dh);
+void ofbp_scale(unsigned *x, unsigned *y, unsigned *w, unsigned *h,
+                unsigned dw, unsigned dh);
 
-#endif /* OFB_DISPLAY_H */
+#endif /* OFBP_DISPLAY_H */

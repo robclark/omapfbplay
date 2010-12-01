@@ -22,8 +22,8 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_UTIL_H
-#define OFB_UTIL_H
+#ifndef OFBP_UTIL_H
+#define OFBP_UTIL_H
 
 #define ALIGN(n, a) (((n)+((a)-1))&~((a)-1))
 #define MIN(a, b) ((a) < (b)? (a): (b))
@@ -31,16 +31,16 @@
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
-#define TN(type, name) ofb_##type##_##name
+#define TN(type, name) ofbp_##type##_##name
 #define DRIVER(type, name)                                              \
     static const struct type TN(type, name);                            \
     static const struct type *const TN(type, name##_p)                  \
-        __attribute__((section(".ofb_"#type), used)) = &TN(type, name); \
+        __attribute__((section(".ofbp_"#type), used)) = &TN(type, name);\
     static const struct type TN(type, name)
 
-#define OFB_FULLSCREEN 1
-#define OFB_DOUBLE_BUF 2
-#define OFB_PHYS_MEM   4
-#define OFB_PRIV_MEM   8
+#define OFBP_FULLSCREEN 1
+#define OFBP_DOUBLE_BUF 2
+#define OFBP_PHYS_MEM   4
+#define OFBP_PRIV_MEM   8
 
-#endif /* OFB_UTIL_H */
+#endif /* OFBP_UTIL_H */

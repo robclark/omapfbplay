@@ -23,10 +23,10 @@
  */
 
         .macro  start_sec name
-        .section .ofb_\name, "a"
-        .global  ofb_\name\()_start
-        .type    ofb_\name\()_start, STT_OBJECT
-        .set     ofb_\name\()_start, .
+        .section .ofbp_\name, "a"
+        .global  ofbp_\name\()_start
+        .type    ofbp_\name\()_start, STT_OBJECT
+        .set     ofbp_\name\()_start, .
         .endm
 
         start_sec       display

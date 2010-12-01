@@ -39,6 +39,6 @@ struct pixconv {
     void (*close)(void);
 };
 
-extern const struct pixconv *ofb_pixconv_start[];
+extern const struct pixconv *ofbp_pixconv_start[];
 
 #endif

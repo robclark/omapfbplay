@@ -22,8 +22,8 @@
     DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef OFB_CODEC_H
-#define OFB_CODEC_H
+#ifndef OFBP_CODEC_H
+#define OFBP_CODEC_H
 
 #include <libavcodec/avcodec.h>
 #include "util.h"
@@ -37,7 +37,7 @@ struct codec {
     void (*close)(void);
 };
 
-extern const struct codec *ofb_codec_start[];
+extern const struct codec *ofbp_codec_start[];
 
 #define CODEC(name) DRIVER(codec, name)
 

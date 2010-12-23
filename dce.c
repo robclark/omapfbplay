@@ -30,7 +30,6 @@
 #include <dce/xdc/std.h>
 #include <dce/ti/sdo/ce/Engine.h>
 #include <dce/ti/sdo/ce/video3/viddec3.h>
-#include <dce/ti/sdo/codecs/h264dec/ih264vdec.h>
 #include <libavcodec/avcodec.h>
 
 #include "frame.h"
@@ -130,10 +129,10 @@ static int dce_open(const char *name, AVCodecContext *cc,
         goto err;
     }
 
-    params = dce_alloc(sizeof(IH264VDEC_Params));
+    params = dce_alloc(sizeof(*params));
     if (!params)
         return -1;
-    params->size = sizeof(IH264VDEC_Params);
+    params->size = sizeof(*params);
 
     params->maxWidth           = ALIGN(ff->disp_w, 16);
     params->maxHeight          = ALIGN(ff->disp_h, 16);
@@ -152,8 +151,6 @@ static int dce_open(const char *name, AVCodecContext *cc,
     params->outputDataMode     = IVIDEO_ENTIREFRAME;
     params->numOutputDataUnits = 0;
     params->errorInfoMode      = IVIDEO_ERRORINFO_OFF;
-    ((IH264VDEC_Params *)params)->maxNumRefFrames = IH264VDEC_NUM_REFFRAMES_AUTO;
-    ((IH264VDEC_Params *)params)->pConstantMemory = 0;
 
     codec = VIDDEC3_create(engine, "ivahd_h264dec", params);
     if (!codec) {
@@ -161,20 +158,20 @@ static int dce_open(const char *name, AVCodecContext *cc,
         goto err;
     }
 
-    dyn_params = dce_alloc(sizeof(IH264VDEC_DynamicParams));
+    dyn_params = dce_alloc(sizeof(*dyn_params));
     if (!dyn_params)
         goto err;
-    dyn_params->size = sizeof(IH264VDEC_DynamicParams);
+    dyn_params->size = sizeof(*dyn_params);
 
     dyn_params->decodeHeader  = XDM_DECODE_AU;
     dyn_params->displayWidth  = 0;
     dyn_params->frameSkipMode = IVIDEO_NO_SKIP;
     dyn_params->newFrameFlag  = XDAS_TRUE;
 
-    status = dce_alloc(sizeof(IH264VDEC_Status));
+    status = dce_alloc(sizeof(*status));
     if (!status)
         goto err;
-    status->size = sizeof(IH264VDEC_Status);
+    status->size = sizeof(*status);
 
     err = VIDDEC3_control(codec, XDM_SETPARAMS, dyn_params, status);
     if (err) {
@@ -212,15 +209,15 @@ static int dce_open(const char *name, AVCodecContext *cc,
     outbufs->descs[1].bufSize.tileMem.width  = ff->width;
     outbufs->descs[1].bufSize.tileMem.height = ff->height / 2;
 
-    in_args = dce_alloc(sizeof(IH264VDEC_InArgs));
+    in_args = dce_alloc(sizeof(*in_args));
     if (!in_args)
         goto err;
-    in_args->size = sizeof(IH264VDEC_InArgs);
+    in_args->size = sizeof(*in_args);
 
-    out_args = dce_alloc(sizeof(IH264VDEC_OutArgs));
+    out_args = dce_alloc(sizeof(*out_args));
     if (!out_args)
         goto err;
-    out_args->size = sizeof(IH264VDEC_OutArgs);
+    out_args->size = sizeof(*out_args);
 
     return 0;
 err:

@@ -112,8 +112,8 @@ static int lavc_open(const char *name, AVCodecContext *params,
     x_off      = ALIGN(edge_width, 32);
     y_off      = edge_width;
 
-    ff->width  = ALIGN(params->width, 32) + 2 * x_off;
-    ff->height = params->height           + 2 * y_off;
+    ff->width  = ALIGN(params->width  + 2 * x_off, 32);
+    ff->height = ALIGN(params->height + 2 * y_off, 32);
     ff->disp_x = x_off;
     ff->disp_y = y_off;
     ff->disp_w = params->width;

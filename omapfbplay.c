@@ -306,6 +306,10 @@ init_frames(struct frame_format *ff)
     int offsets[3];
     int i, j;
 
+    fprintf(stderr, "Frame size %dx%d, display %dx%d @ %d,%d\n",
+            ff->width, ff->height, ff->disp_w, ff->disp_h,
+            ff->disp_x, ff->disp_y);
+
     ofbp_get_plane_offsets(offsets, pf, ff->disp_x, ff->disp_y,
                            frames->linesize);
 

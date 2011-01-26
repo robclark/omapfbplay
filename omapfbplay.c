@@ -300,17 +300,6 @@ void ofbp_post_frame(struct frame *f)
 }
 
 static void
-frame_format(int width, int height, struct frame_format *ff)
-{
-    ff->width  = ALIGN(width,  32);
-    ff->height = ALIGN(height, 32);
-    ff->disp_x = 0;
-    ff->disp_y = 0;
-    ff->disp_w = width;
-    ff->disp_h = height;
-}
-
-static void
 init_frames(struct frame_format *ff)
 {
     const struct pixfmt *pf = ofbp_get_pixfmt(ff->pixfmt);
@@ -445,7 +434,12 @@ speed_test(const char *drv, const char *mem, const char *conv,
         return 1;
     }
 
-    frame_format(w, h, &ff);
+    ff.width  = ALIGN(w, 32);
+    ff.height = ALIGN(h, 32);
+    ff.disp_x = 0;
+    ff.disp_y = 0;
+    ff.disp_w = w;
+    ff.disp_h = h;
 
     dp.pixfmt = ff.pixfmt = PIX_FMT_YUV420P;
     display = display_open(drv, &dp, &ff);
@@ -599,8 +593,8 @@ main(int argc, char **argv)
     }
 
     if (!frame_fmt.width) {
-        frame_fmt.pixfmt = st->codec->pix_fmt;
-        frame_format(st->codec->width, st->codec->height, &frame_fmt);
+        fprintf(stderr, "Decoder error: frame size not specified\n");
+        error(1);
     }
 
     dp.pixfmt = frame_fmt.pixfmt;

@@ -18,7 +18,7 @@ CPPFLAGS += $(FFMPEG:%=-I%)
 
 CFLAGS = -O3 -g -Wall -fomit-frame-pointer -fno-tree-vectorize $(CPUFLAGS)
 
-FFMPEG_LIBS = libavformat libavcodec libavcore libavutil
+FFMPEG_LIBS = libavformat libavcodec libavutil
 
 LDFLAGS = $(SYSROOT)
 LDFLAGS += $(foreach FF,$(FFMPEG),$(addprefix -L$(FF)/,$(FFMPEG_LIBS)))

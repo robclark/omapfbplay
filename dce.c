@@ -270,8 +270,14 @@ static int dce_decode(AVPacket *p)
 
     err = VIDDEC3_process(codec, inbufs, outbufs, in_args, out_args);
     if (err) {
-        fprintf(stderr, "VIDDEC3_process() error %d\n", err);
-        return -1;
+        fprintf(stderr, "VIDDEC3_process() error %d %08x\n", err,
+                    out_args->extendedError);
+        /* for non-fatal errors, keep going.. a non-fatal error could
+         * just indicate an error in the input stream which the codec
+         * was able to conceal
+         */
+        if (XDM_ISFATALERROR(out_args->extendedError))
+            return -1;
     }
 
     for (i = 0; i < out_args->outputID[i]; i++) {

@@ -14,15 +14,15 @@ CC = $(CROSS_COMPILE)gcc
 CPPFLAGS = $(SYSROOT) -MMD
 CPPFLAGS += $(LINUX:%=-I%/include)
 CPPFLAGS += $(and $(LINUX),$(ARCH),-I$(LINUX)/arch/$(ARCH)/include)
-CPPFLAGS += $(FFMPEG:%=-I%)
+CPPFLAGS += $(LIBAV:%=-I%)
 
 CFLAGS = -O3 -g -Wall -fomit-frame-pointer -fno-tree-vectorize $(CPUFLAGS)
 
-FFMPEG_LIBS = libavformat libavcodec libavutil
+LIBAV_LIBS = libavformat libavcodec libavutil
 
 LDFLAGS = $(SYSROOT)
-LDFLAGS += $(foreach FF,$(FFMPEG),$(addprefix -L$(FF)/,$(FFMPEG_LIBS)))
-LDLIBS = $(FFMPEG_LIBS:lib%=-l%) -lm -lpthread -lrt $(EXTRA_LIBS)
+LDFLAGS += $(foreach AV,$(LIBAV),$(addprefix -L$(AV)/,$(LIBAV_LIBS)))
+LDLIBS = $(LIBAV_LIBS:lib%=-l%) -lm -lpthread -lrt $(EXTRA_LIBS)
 
 DRV-y                    = sysclk.o sysmem.o avcodec.o
 DRV-$(CMEM)             += cmem.o

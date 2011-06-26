@@ -76,6 +76,7 @@ cmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
         uint8_t *p = frame_buf + i * frame_size;
         uint8_t *pp = phys + i * frame_size;
 
+        frames[i].ff = ff;
         frames[i].virt[0] = p;
         frames[i].virt[1] = p + y_offset;
         frames[i].virt[2] = p + y_offset + buf_w / 2;

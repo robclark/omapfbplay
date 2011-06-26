@@ -37,6 +37,7 @@ struct frame_format {
 };
 
 struct frame {
+    struct frame_format *ff;
     uint8_t *virt[3];
     uint8_t *phys[3];
     uint8_t *vdata[3];

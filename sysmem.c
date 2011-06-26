@@ -61,6 +61,7 @@ sysmem_alloc_frames(struct frame_format *ff, unsigned bufsize,
     for (i = 0; i < num_frames; i++) {
         uint8_t *p = frame_buf + i * frame_size;
 
+        frames[i].ff = ff;
         frames[i].virt[0] = p;
         frames[i].virt[1] = p + buf_w * buf_h;
         frames[i].virt[2] = frames[i].virt[1] + buf_w / 2;

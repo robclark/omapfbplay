@@ -85,6 +85,7 @@ xv_alloc_frames(struct frame_format *ff, unsigned bufsize,
 
         xv_frames[i].xvi = xvi;
 
+        frames[i].ff = ff;
         frames[i].virt[0] = xvi->data + xvi->offsets[0];
         frames[i].virt[1] = xvi->data + xvi->offsets[2];
         frames[i].virt[2] = xvi->data + xvi->offsets[1];

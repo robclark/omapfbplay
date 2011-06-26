@@ -73,7 +73,8 @@ static int alloc_input(int size)
     if (!buf)
         return -1;
 
-    MemMgr_Free(input_buf);
+    if (input_buf)
+        MemMgr_Free(input_buf);
 
     input_buf  = buf;
     input_phys = TilerMem_VirtToPhys(input_buf);
@@ -164,7 +165,7 @@ static int dce_open(const char *name, AVCodecContext *cc,
     dyn_params->size = sizeof(*dyn_params);
 
     dyn_params->decodeHeader  = XDM_DECODE_AU;
-    dyn_params->displayWidth  = 0;
+    dyn_params->displayWidth  = ff->width;
     dyn_params->frameSkipMode = IVIDEO_NO_SKIP;
     dyn_params->newFrameFlag  = XDAS_TRUE;
 
@@ -185,29 +186,16 @@ static int dce_open(const char *name, AVCodecContext *cc,
         goto err;
     }
 
-    if (alloc_input(16384))
+    if (alloc_input(ff->disp_w * ff->disp_h))
         goto err;
 
     inbufs = dce_alloc(sizeof(*inbufs));
     if (!inbufs)
         goto err;
 
-    inbufs->numBufs = 1;
-    inbufs->descs[0].memType = XDM_MEMTYPE_RAW;
-
     outbufs = dce_alloc(sizeof(*outbufs));
     if (!outbufs)
         goto err;
-
-    outbufs->numBufs = 2;
-
-    outbufs->descs[0].memType = XDM_MEMTYPE_TILED8;
-    outbufs->descs[0].bufSize.tileMem.width  = ff->width;
-    outbufs->descs[0].bufSize.tileMem.height = ff->height;
-
-    outbufs->descs[1].memType = XDM_MEMTYPE_TILED16;
-    outbufs->descs[1].bufSize.tileMem.width  = ff->width;
-    outbufs->descs[1].bufSize.tileMem.height = ff->height / 2;
 
     in_args = dce_alloc(sizeof(*in_args));
     if (!in_args)
@@ -223,6 +211,31 @@ static int dce_open(const char *name, AVCodecContext *cc,
 err:
     dce_close();
     return -1;
+}
+
+static void setup_buf(XDM2_SingleBufDesc *desc,
+        unsigned long paddr, int w, int h)
+{
+    XDAS_Int16 type = XDM_MEMTYPE_RAW;
+
+    if ((0x60000000 <= paddr) && (paddr < 0x68000000))
+        type = XDM_MEMTYPE_TILED8;
+    else if ((0x68000000 <= paddr) && (paddr < 0x70000000))
+        type = XDM_MEMTYPE_TILED16;
+    else if ((0x70000000 <= paddr) && (paddr < 0x78000000))
+        type = XDM_MEMTYPE_TILED32;
+    else if ((0x78000000 <= paddr) && (paddr < 0x80000000))
+        type = XDM_MEMTYPE_TILEDPAGE;
+
+    desc->memType = type;
+    desc->buf = (int8_t*)paddr;
+
+    if ((type == XDM_MEMTYPE_RAW) || (type == XDM_MEMTYPE_TILEDPAGE)) {
+        desc->bufSize.bytes = w * h;
+    } else {
+        desc->bufSize.tileMem.width = w;
+        desc->bufSize.tileMem.height = h;
+    }
 }
 
 static int dce_decode(AVPacket *p)
@@ -262,11 +275,16 @@ static int dce_decode(AVPacket *p)
     in_args->inputID  = (XDAS_Int32)f;
     in_args->numBytes = bufsize;
 
+    inbufs->numBufs = 1;
+    inbufs->descs[0].memType = XDM_MEMTYPE_RAW;
     inbufs->descs[0].buf = (int8_t*)input_phys;
     inbufs->descs[0].bufSize.bytes = bufsize;
 
-    outbufs->descs[0].buf = (int8_t*)f->phys[0];
-    outbufs->descs[1].buf = (int8_t*)f->phys[1];
+    outbufs->numBufs = 2;
+    setup_buf(&outbufs->descs[0], (unsigned long)f->phys[0],
+            f->ff->width, f->ff->height);
+    setup_buf(&outbufs->descs[1], (unsigned long)f->phys[1],
+            f->ff->width, f->ff->height/2);
 
     err = VIDDEC3_process(codec, inbufs, outbufs, in_args, out_args);
     if (err) {

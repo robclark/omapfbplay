@@ -315,6 +315,7 @@ init_frames(struct frame_format *ff)
 
     for (i = 0; i < num_frames; i++) {
         struct frame *f = frames + i;
+        frames[i].ff = ff;
         for (j = 0; j < 3; j++) {
             f->vdata[j] = f->virt[j] + offsets[j];
             f->pdata[j] = f->phys[j] + offsets[j];

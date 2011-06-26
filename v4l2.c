@@ -412,6 +412,7 @@ static int v4l2_alloc(struct frame_format *ff, unsigned max_mem,
         goto err;
 
     for (i = 0; i < nframes; i++) {
+        frames[i].ff = ff;
         for (j = 0; j < 3; j++) {
             frames[i].virt[j]     = vb[i].data[j];
             frames[i].linesize[j] = stride[j];

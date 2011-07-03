@@ -24,12 +24,12 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include <memmgr/tilermem.h>
-#include <memmgr/memmgr.h>
-#include <dce/dce.h>
-#include <dce/xdc/std.h>
-#include <dce/ti/sdo/ce/Engine.h>
-#include <dce/ti/sdo/ce/video3/viddec3.h>
+#include <tilermem.h>
+#include <memmgr.h>
+#include <dce.h>
+#include <xdc/std.h>
+#include <ti/sdo/ce/Engine.h>
+#include <ti/sdo/ce/video3/viddec3.h>
 #include <libavcodec/avcodec.h>
 
 #include "frame.h"

@@ -36,12 +36,12 @@ DRV-$(DCE)              += dce.o
 
 CFLAGS-$(CMEM)          += $(CMEM_CFLAGS)
 CFLAGS-$(SDMA)          += $(SDMA_CFLAGS)
-CFLAGS-$(DCE)           += $(DCE_CFLAGS)
+CFLAGS-$(DCE)           += `pkg-config --cflags libdce`
 
 LDLIBS-$(CMEM)          += $(CMEM_LIBS)
 LDLIBS-$(SDMA)          += $(SDMA_LIBS)
 LDLIBS-$(XV)            += -lXv -lXext -lX11
-LDLIBS-$(DCE)           += -ldce -lmemmgr
+LDLIBS-$(DCE)           += `pkg-config --libs libdce`
 
 CFLAGS += $(CFLAGS-y)
 LDLIBS += $(LDLIBS-y)
